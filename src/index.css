@@ -1,0 +1,53 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f8f7f4;
+  color: #1a1a1a;
+}
+
+.react-flow__node {
+  cursor: pointer;
+}
+
+.react-flow__edge-path {
+  stroke: #c8bfb0;
+  stroke-width: 2;
+}
+
+.react-flow__background {
+  background-color: #f8f7f4;
+}
+
+.react-flow__controls {
+  bottom: 20px;
+  right: 20px;
+  left: auto;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e8e4de;
+}
+
+.react-flow__controls-button {
+  background: #ffffff;
+  border-bottom: 1px solid #e8e4de;
+  width: 32px;
+  height: 32px;
+}
+
+.react-flow__controls-button:hover {
+  background: #f5f3ef;
+}
+
+.react-flow__minimap {
+  border-radius: 10px;
+  border: 1px solid #e8e4de;
+  overflow: hidden;
+}
