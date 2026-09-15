@@ -55,7 +55,7 @@ function assignLevels(nodeMap: Map<string, TreeNode>): void {
   }
 }
 
-function assignPositions(nodeMap: Map<string, TreeNode>): void {
+function assignPositions(nodeMap: Map<string, TreeNode>, relationships: Relationship[]): void {
   const levels = new Map<number, TreeNode[]>();
   for (const node of nodeMap.values()) {
     const lvl = node.level;
@@ -63,14 +63,49 @@ function assignPositions(nodeMap: Map<string, TreeNode>): void {
     levels.get(lvl)!.push(node);
   }
 
+  const spouseOf = new Map<string, string>();
+  for (const rel of relationships) {
+    if (['husband', 'wife', 'spouse'].includes(rel.relationshipType)) {
+      spouseOf.set(rel.personId, rel.relatedPersonId);
+    }
+  }
+
   const sortedLevels = [...levels.keys()].sort((a, b) => a - b);
+
+  // Pass 1: pack left-to-right per level, keeping spouse pairs adjacent.
   for (const lvl of sortedLevels) {
     const nodes = levels.get(lvl)!;
-    let xOffset = 0;
+    const ordered: TreeNode[] = [];
+    const placed = new Set<string>();
     for (const node of nodes) {
+      if (placed.has(node.person.id)) continue;
+      ordered.push(node);
+      placed.add(node.person.id);
+      const spouseId = spouseOf.get(node.person.id);
+      if (spouseId && !placed.has(spouseId)) {
+        const spouseNode = nodes.find(n => n.person.id === spouseId);
+        if (spouseNode) { ordered.push(spouseNode); placed.add(spouseId); }
+      }
+    }
+    let xOffset = 0;
+    for (const node of ordered) {
       node.x = xOffset;
       node.y = lvl * (NODE_HEIGHT + V_GAP);
       xOffset += NODE_WIDTH + H_GAP;
+    }
+  }
+
+  // Pass 2: bottom-up, center each parent over the mean x of its children,
+  // but only when doing so wouldn't overlap its neighbors at the same level.
+  for (const lvl of [...sortedLevels].reverse()) {
+    const nodes = levels.get(lvl)!.slice().sort((a, b) => a.x - b.x);
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      if (node.children.length === 0) continue;
+      const meanX = node.children.reduce((sum, c) => sum + c.x, 0) / node.children.length;
+      const leftBound = i > 0 ? nodes[i - 1].x + NODE_WIDTH + H_GAP : -Infinity;
+      const rightBound = i < nodes.length - 1 ? nodes[i + 1].x - NODE_WIDTH - H_GAP : Infinity;
+      if (meanX >= leftBound && meanX <= rightBound) node.x = meanX;
     }
   }
 }
@@ -80,7 +115,7 @@ export function buildFlowGraph(people: Person[], relationships: Relationship[]):
 
   const nodeMap = buildTreeNodes(people, relationships);
   assignLevels(nodeMap);
-  assignPositions(nodeMap);
+  assignPositions(nodeMap, relationships);
 
   const nodes: Node[] = [...nodeMap.values()].map(tn => ({
     id: tn.person.id,

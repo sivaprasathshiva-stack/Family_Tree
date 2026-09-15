@@ -20,42 +20,28 @@ export default function UserMenu({ user, onLogout }: UserMenuProps) {
   }, []);
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: '8px', padding: '4px', border: 'none',
-          background: 'none', cursor: 'pointer', borderRadius: '999px',
-        }}
+        className="flex items-center gap-2 rounded-full p-0.5 ring-offset-2 transition-all duration-150 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-400 active:scale-95"
       >
-        <div style={{
-          width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
-          background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 shadow-sm">
           {user.picture
-            ? <img src={user.picture} alt={user.name || user.email} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>{(user.name || user.email)[0].toUpperCase()}</span>
+            ? <img src={user.picture} alt={user.name || user.email} className="h-full w-full object-cover" />
+            : <span className="text-[13px] font-bold text-white">{(user.name || user.email)[0].toUpperCase()}</span>
           }
         </div>
       </button>
 
       {open && (
-        <div style={{
-          position: 'absolute', top: '40px', right: 0, background: '#fff', borderRadius: '10px',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.14)', border: '1px solid #e8e4de', minWidth: '200px', zIndex: 1100,
-          overflow: 'hidden',
-        }}>
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid #e8e4de' }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{user.name || 'Signed in'}</div>
-            <div style={{ fontSize: '12px', color: '#8c7c6a', marginTop: '2px' }}>{user.email}</div>
+        <div className="animate-scale-in absolute right-0 top-11 z-[1100] min-w-[210px] origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+          <div className="border-b border-slate-100 px-4 py-3">
+            <div className="truncate text-[13px] font-semibold text-slate-900">{user.name || 'Signed in'}</div>
+            <div className="truncate text-[12px] text-slate-400">{user.email}</div>
           </div>
           <button
             onClick={() => { setOpen(false); onLogout(); }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '10px 14px',
-              border: 'none', background: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 500,
-              color: '#c0392b', fontFamily: 'inherit', textAlign: 'left',
-            }}
+            className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] font-medium text-rose-600 transition-colors duration-150 hover:bg-rose-50"
           >
             <LogOut size={14} /> Sign out
           </button>

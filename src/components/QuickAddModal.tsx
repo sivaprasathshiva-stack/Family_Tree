@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { Person, RelationshipType, Gender } from '../types';
 import { QUICK_ADD_RELATIONS, RELATIONSHIP_LABELS } from '../types';
-import { X, Plus, Search } from 'lucide-react';
+import { genderClasses } from '../theme';
+import { X, Plus, Search, ArrowLeft } from 'lucide-react';
 
 interface QuickAddModalProps {
   currentPerson: Person;
@@ -10,6 +11,9 @@ interface QuickAddModalProps {
   onRelateExisting: (existingId: string, relType: RelationshipType) => void;
   onCancel: () => void;
 }
+
+const GENDERS: Gender[] = ['male', 'female', 'other', 'unknown'];
+const inputClass = 'w-full rounded-xl border-[1.5px] border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-150 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10';
 
 export default function QuickAddModal({ currentPerson, people, onCreateAndRelate, onRelateExisting, onCancel }: QuickAddModalProps) {
   const [step, setStep] = useState<'pick-relation' | 'pick-person'>('pick-relation');
@@ -33,51 +37,50 @@ export default function QuickAddModal({ currentPerson, people, onCreateAndRelate
     onCreateAndRelate(newName.trim(), newGender, relType);
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '9px 12px', border: '1.5px solid #e8e4de', borderRadius: '8px',
-    fontSize: '14px', outline: 'none', background: '#fff', fontFamily: 'inherit', color: '#1a1a1a',
-  };
-
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.35)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
-    }} onClick={onCancel}>
-      <div style={{
-        background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '400px',
-        boxShadow: '0 16px 48px rgba(0,0,0,0.18)',
-      }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 0' }}>
-          <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 700 }}>
+    <div className="animate-fade-in fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/40 p-0 backdrop-blur-sm sm:p-4" onClick={onCancel}>
+      <div
+        className="animate-scale-in scrollbar-thin flex h-full w-full flex-col overflow-y-auto bg-white sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-[400px] sm:rounded-3xl sm:shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between bg-white/90 px-6 pb-0 pt-6 backdrop-blur">
+          <h2 className="m-0 text-base font-bold text-slate-900">
             {step === 'pick-relation' ? `Add relation to ${currentPerson.name}` : `Add ${RELATIONSHIP_LABELS[relType]}`}
           </h2>
-          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8c7c6a' }}><X size={20} /></button>
+          <button onClick={onCancel} className="rounded-lg p-1.5 text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-slate-600 active:scale-90">
+            <X size={20} />
+          </button>
         </div>
 
-        <div style={{ padding: '16px 24px 24px' }}>
+        <div className="flex-1 px-6 pb-6 pt-4">
           {step === 'pick-relation' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="flex flex-col gap-2">
               {QUICK_ADD_RELATIONS.map(rel => (
-                <button key={rel.type} onClick={() => pickRelation(rel.type, rel.defaultGender)} style={{
-                  display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
-                  border: '1.5px solid #e8e4de', borderRadius: '10px', background: '#fff',
-                  cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-                }}>
-                  <Plus size={16} color="#2563eb" />
-                  <span style={{ fontWeight: 600, fontSize: '14px', color: '#1a1a1a' }}>Add {rel.label}</span>
+                <button
+                  key={rel.type}
+                  onClick={() => pickRelation(rel.type, rel.defaultGender)}
+                  className="flex items-center gap-3 rounded-xl border-[1.5px] border-slate-200 bg-white px-4 py-3 text-left transition-all duration-150 hover:border-indigo-300 hover:bg-indigo-50/50 active:scale-[0.98]"
+                >
+                  <Plus size={16} className="text-indigo-600" />
+                  <span className="text-sm font-semibold text-slate-900">Add {rel.label}</span>
                 </button>
               ))}
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <button onClick={() => setStep('pick-relation')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8c7c6a', fontSize: '13px', textAlign: 'left', padding: 0, fontFamily: 'inherit' }}>← Back</button>
+            <div className="flex flex-col gap-3.5">
+              <button onClick={() => setStep('pick-relation')} className="flex items-center gap-1 self-start text-[13px] font-medium text-slate-400 transition-colors hover:text-slate-600">
+                <ArrowLeft size={14} /> Back
+              </button>
 
-              <div style={{ display: 'flex', border: '1.5px solid #e8e4de', borderRadius: '10px', overflow: 'hidden' }}>
+              <div className="flex rounded-xl border-[1.5px] border-slate-200 p-0.5">
                 {(['new', 'existing'] as const).map(m => (
-                  <button key={m} onClick={() => setMode(m)} style={{
-                    flex: 1, padding: '8px', border: 'none', background: mode === m ? '#eff6ff' : '#fff',
-                    color: mode === m ? '#2563eb' : '#6b5f54', fontWeight: 600, fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
-                  }}>
+                  <button
+                    key={m}
+                    onClick={() => setMode(m)}
+                    className={`flex-1 rounded-lg py-1.5 text-[13px] font-semibold transition-all duration-150 ${
+                      mode === m ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
                     {m === 'new' ? 'Create New' : 'Existing Person'}
                   </button>
                 ))}
@@ -86,48 +89,58 @@ export default function QuickAddModal({ currentPerson, people, onCreateAndRelate
               {mode === 'new' ? (
                 <>
                   <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#6b5f54', marginBottom: '6px' }}>Full Name</label>
-                    <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} placeholder="Enter name" style={inputStyle} onKeyDown={e => e.key === 'Enter' && handleCreate()} />
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-500">Full Name</label>
+                    <input autoFocus value={newName} onChange={e => setNewName(e.target.value)} placeholder="Enter name" className={inputClass} onKeyDown={e => e.key === 'Enter' && handleCreate()} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#6b5f54', marginBottom: '6px' }}>Gender</label>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      {(['male', 'female', 'other', 'unknown'] as Gender[]).map(g => (
-                        <button key={g} onClick={() => setNewGender(g)} style={{
-                          flex: 1, padding: '6px 4px', border: `1.5px solid ${newGender === g ? '#2563eb' : '#e8e4de'}`,
-                          borderRadius: '8px', background: newGender === g ? '#eff6ff' : '#fff',
-                          color: newGender === g ? '#2563eb' : '#8c7c6a', fontSize: '11px', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
-                        }}>
-                          {g.charAt(0).toUpperCase() + g.slice(1)}
-                        </button>
-                      ))}
+                    <label className="mb-1.5 block text-xs font-semibold text-slate-500">Gender</label>
+                    <div className="flex gap-1.5">
+                      {GENDERS.map(g => {
+                        const c = genderClasses(g);
+                        const active = newGender === g;
+                        return (
+                          <button
+                            key={g}
+                            onClick={() => setNewGender(g)}
+                            className={`flex-1 rounded-lg border-[1.5px] py-1.5 text-[11px] font-semibold capitalize transition-all duration-150 active:scale-95 ${
+                              active ? `${c.border} ${c.bg} ${c.text}` : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'
+                            }`}
+                          >
+                            {g}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                  <button onClick={handleCreate} disabled={!newName.trim()} style={{
-                    width: '100%', padding: '10px', border: 'none', borderRadius: '10px',
-                    background: newName.trim() ? '#2563eb' : '#c8bfb0', color: '#fff',
-                    fontSize: '14px', fontWeight: 600, cursor: newName.trim() ? 'pointer' : 'not-allowed', fontFamily: 'inherit',
-                  }}>Create & Link</button>
+                  <button
+                    onClick={handleCreate}
+                    disabled={!newName.trim()}
+                    className={`w-full rounded-xl py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-150 ${
+                      newName.trim() ? 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-md active:scale-95' : 'cursor-not-allowed bg-slate-300'
+                    }`}
+                  >
+                    Create & Link
+                  </button>
                 </>
               ) : (
                 <>
-                  <div style={{ position: 'relative' }}>
-                    <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#b0a89e' }} />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." style={{ ...inputStyle, paddingLeft: '34px' }} />
+                  <div className="relative">
+                    <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className={`${inputClass} pl-9`} />
                   </div>
-                  <div style={{ maxHeight: 200, overflowY: 'auto', border: '1.5px solid #e8e4de', borderRadius: '10px', overflow: 'hidden' }}>
+                  <div className="scrollbar-thin max-h-52 overflow-y-auto rounded-xl border-[1.5px] border-slate-200">
                     {filtered.length === 0
-                      ? <div style={{ padding: '16px', textAlign: 'center', color: '#b0a89e', fontSize: '13px' }}>No people found</div>
+                      ? <div className="p-4 text-center text-[13px] text-slate-400">No people found</div>
                       : filtered.map(p => (
-                        <button key={p.id} onClick={() => onRelateExisting(p.id, relType)} style={{
-                          display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
-                          padding: '10px 14px', border: 'none', borderBottom: '1px solid #f0ede8',
-                          background: '#fff', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
-                        }}>
-                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#e8e4de', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                            {p.photo ? <img src={p.photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontWeight: 700, color: '#8c7c6a', fontSize: '12px' }}>{p.name[0]}</span>}
+                        <button
+                          key={p.id}
+                          onClick={() => onRelateExisting(p.id, relType)}
+                          className="flex w-full items-center gap-2.5 border-b border-slate-100 bg-white px-3.5 py-2.5 text-left transition-colors duration-150 last:border-b-0 hover:bg-slate-50"
+                        >
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200">
+                            {p.photo ? <img src={p.photo} alt={p.name} className="h-full w-full object-cover" /> : <span className="text-xs font-bold text-slate-500">{p.name[0]}</span>}
                           </div>
-                          <span style={{ fontWeight: 600, fontSize: '13px', color: '#1a1a1a' }}>{p.name}</span>
+                          <span className="truncate text-[13px] font-semibold text-slate-900">{p.name}</span>
                         </button>
                       ))
                     }

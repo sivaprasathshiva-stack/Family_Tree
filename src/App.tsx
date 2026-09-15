@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { Node, Edge, NodeMouseHandler } from '@xyflow/react';
 import {
   ReactFlow, Controls, MiniMap, Background, BackgroundVariant,
@@ -11,6 +11,8 @@ import {
   exportToFile, importFromFile, importToDb,
 } from './api';
 import { buildFlowGraph } from './treeLayout';
+import { getImmediateFamily, applyNodeFocus, applyEdgeFocus } from './relationsFocus';
+import { genderColors } from './theme';
 import PersonNode from './components/PersonNode';
 import PersonForm from './components/PersonForm';
 import PersonPanel from './components/PersonPanel';
@@ -20,7 +22,7 @@ import QuickAddModal from './components/QuickAddModal';
 import LoginScreen from './components/LoginScreen';
 import UserMenu from './components/UserMenu';
 import { getCurrentUser, logout as logoutUser, getFamilyName, updateFamilyName, type AuthUser } from './auth';
-import { Search, Plus, Download, Upload, TreePine, Users, Loader2, Pencil } from 'lucide-react';
+import { Search, Plus, Download, Upload, TreePine, Users, Loader2, Pencil, Maximize2, X } from 'lucide-react';
 
 const nodeTypes = { personNode: PersonNode };
 
@@ -42,6 +44,7 @@ function FamilyTreeApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Person[]>([]);
   const [showSearch, setShowSearch] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { fitView, setCenter } = useReactFlow();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -93,6 +96,14 @@ function FamilyTreeApp() {
     const q = searchQuery.toLowerCase();
     setSearchResults(data.people.filter(p => p.name.toLowerCase().includes(q)));
   }, [searchQuery, data.people]);
+
+  // "Click a person to see their family" — dim everything outside their immediate family.
+  const focusIds = useMemo(
+    () => (selectedPerson ? getImmediateFamily(selectedPerson.id, data.relationships, data.people).allIds : null),
+    [selectedPerson, data.relationships, data.people]
+  );
+  const displayNodes = useMemo(() => applyNodeFocus(nodes, focusIds, selectedPerson?.id ?? null), [nodes, focusIds, selectedPerson]);
+  const displayEdges = useMemo(() => applyEdgeFocus(edges, focusIds, selectedPerson?.id ?? null), [edges, focusIds, selectedPerson]);
 
   const handleNodeClick: NodeMouseHandler = useCallback((_evt, node) => {
     const person = data.people.find(p => p.id === node.id);
@@ -201,17 +212,10 @@ function FamilyTreeApp() {
     data.relationships.some(r => r.personId === id || r.relatedPersonId === id);
   const personToDelete = confirmDelete ? data.people.find(p => p.id === confirmDelete) : null;
 
-  const btnStyle: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
-    border: '1.5px solid #e8e4de', borderRadius: '10px', background: '#fff',
-    color: '#4a4540', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-  };
-
   if (authUser === undefined) {
     return (
-      <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f7f4' }}>
-        <Loader2 size={32} color="#3d7ab5" style={{ animation: 'spin 1s linear infinite' }} />
-        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+        <Loader2 size={32} className="animate-spin text-indigo-500" />
       </div>
     );
   }
@@ -220,12 +224,14 @@ function FamilyTreeApp() {
     return <LoginScreen />;
   }
 
+  const anyModalOpen = showAddPerson || showEditPerson || showAddRelationship || showQuickAdd || !!confirmDelete;
+
   return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: '#f8f7f4' }}>
+    <div className="flex h-screen w-screen flex-col bg-slate-50">
       {/* Header */}
-      <header style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 20px', height: 56, borderBottom: '1px solid #e8e4de', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', flexShrink: 0, zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px' }}>
-          <TreePine size={22} color="#3d7ab5" />
+      <header className="z-[100] flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white/95 px-3 shadow-sm backdrop-blur sm:px-5">
+        <div className="flex min-w-0 shrink items-center gap-2">
+          <TreePine size={22} className="shrink-0 text-indigo-500" />
           {editingFamilyName ? (
             <input
               autoFocus
@@ -233,74 +239,124 @@ function FamilyTreeApp() {
               onChange={e => setFamilyNameDraft(e.target.value)}
               onBlur={saveFamilyName}
               onKeyDown={e => { if (e.key === 'Enter') saveFamilyName(); if (e.key === 'Escape') setEditingFamilyName(false); }}
-              style={{ fontWeight: 800, fontSize: '16px', color: '#1a1a1a', letterSpacing: '-0.02em', border: '1.5px solid #2563eb', borderRadius: '6px', padding: '2px 6px', fontFamily: 'inherit', outline: 'none', width: 180 }}
+              className="w-40 rounded-lg border-[1.5px] border-indigo-400 px-2 py-0.5 text-[15px] font-extrabold tracking-tight text-slate-900 outline-none sm:w-48"
             />
           ) : (
-            <button onClick={startEditFamilyName} title="Edit family name" style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
-              <span style={{ fontWeight: 800, fontSize: '16px', color: '#1a1a1a', letterSpacing: '-0.02em' }}>{familyName}</span>
-              <Pencil size={12} color="#c8bfb0" />
+            <button onClick={startEditFamilyName} title="Edit family name" className="group flex min-w-0 items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-slate-100">
+              <span className="truncate text-[15px] font-extrabold tracking-tight text-slate-900 sm:text-base">{familyName}</span>
+              <Pencil size={11} className="shrink-0 text-slate-300 group-hover:text-slate-400" />
             </button>
           )}
         </div>
 
-        <div style={{ flex: 1, maxWidth: 320, position: 'relative' }}>
-          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#b0a89e' }} />
+        {/* Desktop search */}
+        <div className="relative hidden max-w-[280px] flex-1 sm:block">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={searchQuery}
             onChange={e => { setSearchQuery(e.target.value); setShowSearch(true); }}
             onFocus={() => setShowSearch(true)}
             onBlur={() => setTimeout(() => setShowSearch(false), 200)}
             placeholder="Search family members..."
-            style={{ width: '100%', padding: '7px 12px 7px 30px', border: '1.5px solid #e8e4de', borderRadius: '8px', fontSize: '13px', outline: 'none', fontFamily: 'inherit', background: '#f8f7f4' }}
+            className="w-full rounded-lg border-[1.5px] border-slate-200 bg-slate-50 py-1.5 pl-9 pr-3 text-[13px] outline-none transition-colors focus:border-indigo-400 focus:bg-white"
           />
           {showSearch && searchResults.length > 0 && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '4px', background: '#fff', border: '1.5px solid #e8e4de', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.1)', zIndex: 300, overflow: 'hidden' }}>
+            <div className="animate-scale-in absolute left-0 right-0 top-[calc(100%+6px)] z-[300] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
               {searchResults.slice(0, 6).map(p => (
-                <button key={p.id} onClick={() => { centerOnPerson(p.id); setSelectedPerson(p); setSearchQuery(''); }} style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '9px 14px', border: 'none', borderBottom: '1px solid #f0ede8', background: '#fff', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#e8e4de', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                    {p.photo ? <img src={p.photo} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontWeight: 700, fontSize: '11px', color: '#6b5f54' }}>{p.name[0]}</span>}
+                <button
+                  key={p.id}
+                  onClick={() => { centerOnPerson(p.id); setSelectedPerson(p); setSearchQuery(''); }}
+                  className="flex w-full items-center gap-2.5 border-b border-slate-100 px-3.5 py-2 text-left transition-colors last:border-b-0 hover:bg-slate-50"
+                >
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200">
+                    {p.photo ? <img src={p.photo} alt={p.name} className="h-full w-full object-cover" /> : <span className="text-[11px] font-bold text-slate-500">{p.name[0]}</span>}
                   </div>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a1a1a' }}>{p.name}</span>
+                  <span className="truncate text-[13px] font-semibold text-slate-900">{p.name}</span>
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '13px', color: '#8c7c6a', display: 'flex', alignItems: 'center', gap: '5px' }}>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {/* Mobile search toggle */}
+          <button onClick={() => setMobileSearchOpen(o => !o)} className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 sm:hidden" title="Search">
+            <Search size={16} />
+          </button>
+
+          <span className="hidden items-center gap-1.5 text-[13px] font-medium text-slate-400 md:flex">
             <Users size={14} /> {data.people.length} {data.people.length === 1 ? 'person' : 'people'}
           </span>
-          <button style={btnStyle} onClick={() => exportToFile(data)}><Download size={14} /> Export</button>
-          <button style={btnStyle} onClick={() => fileInputRef.current?.click()}><Upload size={14} /> Import</button>
-          <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} style={{ display: 'none' }} />
-          <button onClick={() => setShowAddPerson(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', border: 'none', borderRadius: '10px', background: '#2563eb', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            <Plus size={16} /> Add Person
+
+          <button onClick={() => exportToFile(data)} title="Export" className="flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 px-2 py-1.5 text-[13px] font-semibold text-slate-500 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 active:scale-95 sm:px-3">
+            <Download size={14} /><span className="hidden lg:inline">Export</span>
           </button>
+          <button onClick={() => fileInputRef.current?.click()} title="Import" className="flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 px-2 py-1.5 text-[13px] font-semibold text-slate-500 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 active:scale-95 sm:px-3">
+            <Upload size={14} /><span className="hidden lg:inline">Import</span>
+          </button>
+          <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
+
+          <button onClick={() => setShowAddPerson(true)} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-[13px] font-bold text-white shadow-sm transition-all duration-150 hover:bg-indigo-700 hover:shadow-md active:scale-95 sm:px-4">
+            <Plus size={16} /><span className="hidden sm:inline">Add Person</span>
+          </button>
+
           <UserMenu user={authUser} onLogout={handleLogout} />
         </div>
       </header>
 
+      {/* Mobile search overlay */}
+      {mobileSearchOpen && (
+        <div className="animate-fade-in absolute inset-x-0 top-14 z-[200] border-b border-slate-200 bg-white p-3 shadow-lg sm:hidden">
+          <div className="relative">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              autoFocus
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search family members..."
+              className="w-full rounded-lg border-[1.5px] border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 focus:bg-white"
+            />
+          </div>
+          {searchResults.length > 0 && (
+            <div className="mt-2 max-h-64 overflow-y-auto rounded-xl border border-slate-100">
+              {searchResults.slice(0, 8).map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => { centerOnPerson(p.id); setSelectedPerson(p); setSearchQuery(''); setMobileSearchOpen(false); }}
+                  className="flex w-full items-center gap-2.5 border-b border-slate-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-slate-50"
+                >
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200">
+                    {p.photo ? <img src={p.photo} alt={p.name} className="h-full w-full object-cover" /> : <span className="text-[11px] font-bold text-slate-500">{p.name[0]}</span>}
+                  </div>
+                  <span className="truncate text-[13px] font-semibold text-slate-900">{p.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Main */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+      <div className="relative flex-1 overflow-hidden">
         {loading ? (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-            <Loader2 size={32} color="#3d7ab5" style={{ animation: 'spin 1s linear infinite' }} />
-            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-            <span style={{ fontSize: '14px', color: '#8c7c6a' }}>Loading your family tree…</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <Loader2 size={32} className="animate-spin text-indigo-500" />
+            <span className="text-sm text-slate-400">Loading your family tree…</span>
           </div>
         ) : data.people.length === 0 ? (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
-            <div style={{ fontSize: '64px', lineHeight: 1 }}>🌳</div>
-            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: '#1a1a1a' }}>Build Your Family Tree</h2>
-            <p style={{ margin: 0, fontSize: '15px', color: '#8c7c6a', maxWidth: 320, textAlign: 'center' }}>Start by adding yourself or the oldest family member.</p>
-            <button onClick={() => setShowAddPerson(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', border: 'none', borderRadius: '12px', background: '#2563eb', color: '#fff', fontSize: '15px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: '8px' }}>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 text-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-indigo-50">
+              <TreePine size={36} className="text-indigo-400" />
+            </div>
+            <h2 className="m-0 text-2xl font-extrabold text-slate-900">Build Your Family Tree</h2>
+            <p className="m-0 max-w-xs text-[15px] text-slate-400">Start by adding yourself or the oldest family member you know.</p>
+            <button onClick={() => setShowAddPerson(true)} className="mt-2 flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 text-[15px] font-bold text-white shadow-md transition-all duration-150 hover:bg-indigo-700 hover:shadow-lg active:scale-95">
               <Plus size={18} /> Add First Person
             </button>
           </div>
         ) : (
           <ReactFlow
-            nodes={nodes} edges={edges}
+            nodes={displayNodes} edges={displayEdges}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
             nodeTypes={nodeTypes}
             onNodeClick={handleNodeClick}
@@ -308,12 +364,12 @@ function FamilyTreeApp() {
             fitView fitViewOptions={{ padding: 0.2 }}
             minZoom={0.1} maxZoom={2.5}
           >
-            <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#e0dbd4" />
+            <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#e2e8f0" />
             <Controls showInteractive={false} />
             <MiniMap
               nodeColor={(n) => {
                 const p = data.people.find(x => x.id === n.id);
-                return p?.gender === 'male' ? '#7baed4' : p?.gender === 'female' ? '#d47baa' : '#c8bfb0';
+                return p ? genderColors(p.gender).solid : '#cbd5e1';
               }}
               style={{ bottom: 80, right: 16 }}
             />
@@ -321,19 +377,32 @@ function FamilyTreeApp() {
         )}
 
         {!loading && data.people.length > 0 && (
-          <button onClick={() => fitView({ padding: 0.15, duration: 500 })} style={{ position: 'absolute', bottom: 20, right: 20, background: '#fff', border: '1.5px solid #e8e4de', borderRadius: '8px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, color: '#4a4540', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 10 }}>
-            Fit to Screen
+          <button
+            onClick={() => fitView({ padding: 0.15, duration: 500 })}
+            className="absolute bottom-5 right-5 z-10 flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 shadow-md transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 active:scale-95"
+          >
+            <Maximize2 size={12} /> Fit to Screen
+          </button>
+        )}
+
+        {selectedPerson && !anyModalOpen && (
+          <button
+            onClick={() => setSelectedPerson(null)}
+            className="absolute bottom-5 left-5 z-10 flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 shadow-md transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 active:scale-95 sm:hidden"
+          >
+            <X size={12} /> Clear focus
           </button>
         )}
       </div>
 
       {/* Side panel */}
-      {selectedPerson && !showAddPerson && !showEditPerson && !showAddRelationship && !showQuickAdd && !confirmDelete && (
+      {selectedPerson && !anyModalOpen && (
         <PersonPanel
           person={selectedPerson} people={data.people} relationships={data.relationships}
           onEdit={() => setShowEditPerson(true)}
           onDelete={() => setConfirmDelete(selectedPerson.id)}
           onAddRelationship={() => setShowAddRelationship(true)}
+          onQuickAdd={() => setShowQuickAdd(true)}
           onDeleteRelationship={handleDeleteRelationship}
           onSelectPerson={id => { const p = data.people.find(x => x.id === id); if (p) { setSelectedPerson(p); centerOnPerson(id); } }}
           onClose={() => setSelectedPerson(null)}

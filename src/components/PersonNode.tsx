@@ -1,92 +1,50 @@
 import { memo } from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Person } from '../types';
+import { Handle, Position, type NodeProps } from '@xyflow/react';
+import type { Person } from '../types';
 import { User } from 'lucide-react';
+import { genderClasses } from '../theme';
 
 interface PersonNodeData {
   person: Person;
-  isSelected?: boolean;
-  onClick?: (person: Person) => void;
+  dimmed?: boolean;
 }
 
-const genderColors = {
-  male: { bg: '#e8f0f7', border: '#7baed4', icon: '#3d7ab5' },
-  female: { bg: '#fce8f0', border: '#d47baa', icon: '#b53d7a' },
-  other: { bg: '#ede8f7', border: '#9a7bd4', icon: '#6d3db5' },
-  unknown: { bg: '#f0ede8', border: '#c8bfb0', icon: '#8c7c6a' },
-};
-
 function PersonNode({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as PersonNodeData;
-  const { person } = nodeData;
-  const colors = genderColors[person.gender] || genderColors.unknown;
+  const { person, dimmed } = data as unknown as PersonNodeData;
+  const c = genderClasses(person.gender);
   const birthYear = person.dateOfBirth ? new Date(person.dateOfBirth).getFullYear() : null;
   const deathYear = person.dateOfDeath ? new Date(person.dateOfDeath).getFullYear() : null;
 
   return (
     <div
-      style={{
-        background: colors.bg,
-        border: `2px solid ${selected ? '#2563eb' : colors.border}`,
-        borderRadius: '12px',
-        padding: '10px 14px',
-        width: 180,
-        minHeight: 80,
-        cursor: 'pointer',
-        boxShadow: selected
-          ? '0 0 0 3px rgba(37,99,235,0.15), 0 4px 16px rgba(0,0,0,0.12)'
-          : '0 2px 8px rgba(0,0,0,0.07)',
-        transition: 'box-shadow 0.15s, border-color 0.15s',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '6px',
-        position: 'relative',
-      }}
+      className={[
+        'relative flex w-[180px] min-h-[88px] flex-col items-center gap-1.5 rounded-2xl border-2 px-3.5 py-3',
+        'cursor-pointer transition-all duration-200 ease-out',
+        dimmed ? 'opacity-20 grayscale' : 'opacity-100',
+        selected
+          ? 'border-indigo-500 shadow-[0_0_0_4px_rgba(79,70,229,0.14),0_8px_20px_rgba(15,23,42,0.14)] -translate-y-0.5'
+          : `${c.border} shadow-sm hover:shadow-lg hover:-translate-y-0.5`,
+        c.bg,
+      ].join(' ')}
     >
-      <Handle type="target" position={Position.Top} style={{ opacity: 0, width: 8, height: 8 }} />
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0, width: 8, height: 8 }} />
-      <Handle type="target" position={Position.Left} style={{ opacity: 0, width: 8, height: 8 }} />
-      <Handle type="source" position={Position.Right} style={{ opacity: 0, width: 8, height: 8 }} />
+      <Handle type="target" position={Position.Top} className="!opacity-0 !h-2 !w-2" />
+      <Handle type="source" position={Position.Bottom} className="!opacity-0 !h-2 !w-2" />
+      <Handle type="target" position={Position.Left} className="!opacity-0 !h-2 !w-2" />
+      <Handle type="source" position={Position.Right} className="!opacity-0 !h-2 !w-2" />
 
-      {/* Avatar */}
-      <div style={{
-        width: 44,
-        height: 44,
-        borderRadius: '50%',
-        background: person.photo ? 'transparent' : colors.border,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        flexShrink: 0,
-        border: `2px solid ${colors.border}`,
-      }}>
-        {person.photo ? (
-          <img src={person.photo} alt={person.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <User size={22} color="#fff" />
-        )}
+      <div className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 bg-white shadow-sm ${c.border}`}>
+        {person.photo
+          ? <img src={person.photo} alt={person.name} className="h-full w-full object-cover" />
+          : <User size={20} className={c.text} />
+        }
       </div>
 
-      {/* Name */}
-      <div style={{
-        fontWeight: 600,
-        fontSize: '13px',
-        textAlign: 'center',
-        color: '#1a1a1a',
-        lineHeight: 1.2,
-        maxWidth: '100%',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}>
+      <div className="max-w-full truncate text-[13px] font-semibold leading-tight text-slate-900">
         {person.name}
       </div>
 
-      {/* Years */}
       {(birthYear || deathYear) && (
-        <div style={{ fontSize: '11px', color: '#8c7c6a', fontWeight: 400 }}>
+        <div className="text-[11px] font-medium text-slate-400">
           {birthYear && deathYear
             ? `${birthYear} – ${deathYear}`
             : birthYear

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Person, Gender } from '../types';
-import { X, Camera, User } from 'lucide-react';
+import type { Person, Gender } from '../types';
+import { genderClasses } from '../theme';
+import { X, Camera } from 'lucide-react';
 
 interface PersonFormProps {
   person?: Person;
@@ -10,6 +11,11 @@ interface PersonFormProps {
   onCancel: () => void;
   title?: string;
 }
+
+const GENDERS: Gender[] = ['male', 'female', 'other', 'unknown'];
+
+const inputClass = 'w-full rounded-xl border-[1.5px] border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition-colors duration-150 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10';
+const labelClass = 'mb-1.5 block text-xs font-semibold tracking-wide text-slate-500';
 
 export default function PersonForm({ person, defaultName = '', defaultGender = 'unknown', onSave, onCancel, title = 'Add Person' }: PersonFormProps) {
   const [name, setName] = useState(person?.name ?? defaultName);
@@ -39,146 +45,112 @@ export default function PersonForm({ person, defaultName = '', defaultGender = '
     onSave({ name: name.trim(), gender, dateOfBirth: dateOfBirth || undefined, dateOfDeath: dateOfDeath || undefined, photo: photo || undefined, phone: phone || undefined, email: email || undefined, notes: notes || undefined });
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '8px 12px', border: '1.5px solid #e8e4de', borderRadius: '8px',
-    fontSize: '14px', outline: 'none', background: '#fff', color: '#1a1a1a',
-    fontFamily: 'inherit',
-  };
-
-  const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: '12px', fontWeight: 600, color: '#6b5f54',
-    marginBottom: '4px', letterSpacing: '0.02em',
-  };
-
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px',
-    }} onClick={onCancel}>
-      <div style={{
-        background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '440px',
-        maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 16px 48px rgba(0,0,0,0.18)',
-      }} onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px 0' }}>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#1a1a1a' }}>{title}</h2>
-          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '6px', color: '#8c7c6a' }}>
+    <div className="animate-fade-in fixed inset-0 z-[1000] flex items-center justify-center bg-slate-900/40 p-0 backdrop-blur-sm sm:p-4" onClick={onCancel}>
+      <div
+        className="animate-scale-in scrollbar-thin flex h-full w-full flex-col overflow-y-auto bg-white sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-[440px] sm:rounded-3xl sm:shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between bg-white/90 px-6 pb-0 pt-6 backdrop-blur">
+          <h2 className="m-0 text-lg font-bold text-slate-900">{title}</h2>
+          <button onClick={onCancel} className="rounded-lg p-1.5 text-slate-400 transition-all duration-150 hover:bg-slate-100 hover:text-slate-600 active:scale-90">
             <X size={20} />
           </button>
         </div>
 
-        <div style={{ padding: '20px 24px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Photo upload */}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div className="flex flex-1 flex-col gap-5 px-6 pb-6 pt-5">
+          <div className="flex justify-center">
             <div
               onClick={() => fileRef.current?.click()}
-              style={{
-                width: 72, height: 72, borderRadius: '50%',
-                background: photo ? 'transparent' : '#f0ede8',
-                border: '2px dashed #c8bfb0', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                position: 'relative',
-              }}
+              className="group relative flex h-20 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-slate-300 bg-slate-50 transition-all duration-150 hover:border-indigo-400 hover:scale-105 active:scale-95"
             >
               {photo ? (
-                <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={photo} alt="" className="h-full w-full object-cover" />
               ) : (
-                <div style={{ textAlign: 'center' }}>
-                  <Camera size={20} color="#c8bfb0" />
-                  <div style={{ fontSize: '10px', color: '#c8bfb0', marginTop: '2px' }}>Photo</div>
+                <div className="text-center">
+                  <Camera size={20} className="mx-auto text-slate-400 group-hover:text-indigo-500" />
+                  <div className="mt-0.5 text-[10px] text-slate-400">Photo</div>
                 </div>
               )}
             </div>
-            <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
+            <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} className="hidden" />
           </div>
 
-          {/* Name */}
           <div>
-            <label style={labelStyle}>Full Name *</label>
+            <label className={labelClass}>Full Name *</label>
             <input
               ref={nameRef}
               value={name}
               onChange={e => { setName(e.target.value); setError(''); }}
               placeholder="Enter full name"
-              style={{ ...inputStyle, borderColor: error ? '#e05' : '#e8e4de' }}
+              className={`${inputClass} ${error ? '!border-rose-400 !ring-rose-500/10' : ''}`}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             />
-            {error && <div style={{ fontSize: '12px', color: '#e05', marginTop: '4px' }}>{error}</div>}
+            {error && <div className="mt-1.5 text-xs font-medium text-rose-500">{error}</div>}
           </div>
 
-          {/* Gender */}
           <div>
-            <label style={labelStyle}>Gender</label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {(['male', 'female', 'other', 'unknown'] as Gender[]).map(g => (
-                <button
-                  key={g}
-                  onClick={() => setGender(g)}
-                  style={{
-                    flex: 1, padding: '7px 4px', border: `1.5px solid ${gender === g ? '#2563eb' : '#e8e4de'}`,
-                    borderRadius: '8px', background: gender === g ? '#eff6ff' : '#fff',
-                    color: gender === g ? '#2563eb' : '#8c7c6a', fontSize: '12px', fontWeight: 500,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                    transition: 'all 0.1s',
-                  }}
-                >
-                  {g.charAt(0).toUpperCase() + g.slice(1)}
-                </button>
-              ))}
+            <label className={labelClass}>Gender</label>
+            <div className="flex gap-2">
+              {GENDERS.map(g => {
+                const c = genderClasses(g);
+                const active = gender === g;
+                return (
+                  <button
+                    key={g}
+                    onClick={() => setGender(g)}
+                    className={`flex-1 rounded-xl border-[1.5px] py-2 text-xs font-semibold capitalize transition-all duration-150 active:scale-95 ${
+                      active ? `${c.border} ${c.bg} ${c.text}` : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'
+                    }`}
+                  >
+                    {g}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Dates */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label style={labelStyle}>Date of Birth</label>
-              <input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} style={inputStyle} />
+              <label className={labelClass}>Date of Birth</label>
+              <input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} className={inputClass} />
             </div>
             <div>
-              <label style={labelStyle}>Date of Death</label>
-              <input type="date" value={dateOfDeath} onChange={e => setDateOfDeath(e.target.value)} style={inputStyle} />
+              <label className={labelClass}>Date of Death</label>
+              <input type="date" value={dateOfDeath} onChange={e => setDateOfDeath(e.target.value)} className={inputClass} />
             </div>
           </div>
 
-          {/* Contact */}
           <div>
-            <label style={labelStyle}>Phone</label>
-            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Optional" style={inputStyle} />
+            <label className={labelClass}>Phone</label>
+            <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Optional" className={inputClass} />
           </div>
           <div>
-            <label style={labelStyle}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Optional" style={inputStyle} />
+            <label className={labelClass}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Optional" className={inputClass} />
           </div>
 
-          {/* Notes */}
           <div>
-            <label style={labelStyle}>Notes</label>
+            <label className={labelClass}>Notes</label>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Any notes..."
               rows={3}
-              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
+              className={`${inputClass} resize-y leading-relaxed`}
             />
           </div>
 
-          {/* Actions */}
-          <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+          <div className="mt-1 flex gap-2.5 pb-1">
             <button
               onClick={onCancel}
-              style={{
-                flex: 1, padding: '10px', border: '1.5px solid #e8e4de', borderRadius: '10px',
-                background: '#fff', color: '#6b5f54', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-              }}
+              className="flex-1 rounded-xl border-[1.5px] border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-600 transition-all duration-150 hover:bg-slate-50 active:scale-95"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
-              style={{
-                flex: 2, padding: '10px', border: 'none', borderRadius: '10px',
-                background: '#2563eb', color: '#fff', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-              }}
+              className="flex-[2] rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-indigo-700 hover:shadow-md active:scale-95"
             >
               {person ? 'Save Changes' : 'Add Person'}
             </button>

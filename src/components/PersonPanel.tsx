@@ -1,5 +1,7 @@
-import type { Person, Relationship, RelationshipType } from '../types';
-import { RELATIONSHIP_LABELS } from '../types';
+import type { ReactNode } from 'react';
+import type { Person, Relationship } from '../types';
+import { getImmediateFamily, type FamilyEntry } from '../relationsFocus';
+import { genderClasses } from '../theme';
 import { X, Edit2, Trash2, Plus, Phone, Mail } from 'lucide-react';
 
 interface PersonPanelProps {
@@ -9,24 +11,18 @@ interface PersonPanelProps {
   onEdit: () => void;
   onDelete: () => void;
   onAddRelationship: () => void;
+  onQuickAdd: () => void;
   onDeleteRelationship: (id: string) => void;
   onSelectPerson: (id: string) => void;
   onClose: () => void;
 }
 
-const genderColors: Record<string, { bg: string; accent: string }> = {
-  male: { bg: '#e8f0f7', accent: '#3d7ab5' },
-  female: { bg: '#fce8f0', accent: '#b53d7a' },
-  other: { bg: '#ede8f7', accent: '#6d3db5' },
-  unknown: { bg: '#f0ede8', accent: '#6b5f54' },
-};
-
 export default function PersonPanel({
-  person, people, relationships, onEdit, onDelete, onAddRelationship, onDeleteRelationship, onSelectPerson, onClose,
+  person, people, relationships, onEdit, onDelete, onAddRelationship, onQuickAdd, onDeleteRelationship, onSelectPerson, onClose,
 }: PersonPanelProps) {
-  const colors = genderColors[person.gender] || genderColors.unknown;
-  const personRels = relationships.filter(r => r.personId === person.id);
-  const getRelatedPerson = (id: string) => people.find(p => p.id === id);
+  const c = genderClasses(person.gender);
+  const family = getImmediateFamily(person.id, relationships, people);
+  const hasAnyFamily = family.parents.length || family.spouses.length || family.children.length || family.siblings.length || family.extended.length;
 
   function formatDate(dateStr?: string) {
     if (!dateStr) return null;
@@ -34,38 +30,32 @@ export default function PersonPanel({
     catch { return dateStr; }
   }
 
-  const btnBase: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
-    border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-    cursor: 'pointer', fontFamily: 'inherit',
-  };
-
   return (
-    <div style={{
-      position: 'fixed', top: 0, right: 0, bottom: 0, width: 320,
-      background: '#fff', boxShadow: '-4px 0 24px rgba(0,0,0,0.1)',
-      zIndex: 500, display: 'flex', flexDirection: 'column', borderLeft: '1px solid #e8e4de',
-    }}>
-      <div style={{ background: colors.bg, padding: '20px 20px 16px', borderBottom: '1px solid #e8e4de' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.7)', border: 'none', borderRadius: '8px', cursor: 'pointer', padding: '6px', color: colors.accent }}>
-            <X size={18} />
+    <div className="animate-slide-up sm:animate-slide-in-right fixed inset-x-0 bottom-0 z-[500] flex max-h-[85vh] flex-col rounded-t-3xl bg-white shadow-2xl sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-0 sm:max-h-none sm:w-[380px] sm:rounded-none sm:border-l sm:border-slate-200">
+      <div className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-slate-200 sm:hidden" />
+
+      <div className={`shrink-0 px-6 pb-5 pt-4 sm:pt-6 ${c.bg}`}>
+        <div className="mb-3 flex justify-end gap-1.5">
+          <button onClick={onEdit} title="Edit" className="rounded-lg bg-white/70 p-1.5 text-slate-600 transition-all duration-150 hover:scale-105 hover:bg-white active:scale-95">
+            <Edit2 size={16} />
+          </button>
+          <button onClick={onDelete} title="Delete" className="rounded-lg bg-white/70 p-1.5 text-rose-600 transition-all duration-150 hover:scale-105 hover:bg-white active:scale-95">
+            <Trash2 size={16} />
+          </button>
+          <button onClick={onClose} title="Close" className="rounded-lg bg-white/70 p-1.5 text-slate-600 transition-all duration-150 hover:scale-105 hover:bg-white active:scale-95">
+            <X size={16} />
           </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: '50%', overflow: 'hidden',
-            background: colors.accent, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '2px solid rgba(255,255,255,0.5)', flexShrink: 0,
-          }}>
+        <div className="flex items-center gap-3.5">
+          <div className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white shadow ${c.solidBg}`}>
             {person.photo
-              ? <img src={person.photo} alt={person.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : <span style={{ color: '#fff', fontSize: '20px', fontWeight: 700 }}>{person.name[0].toUpperCase()}</span>
+              ? <img src={person.photo} alt={person.name} className="h-full w-full object-cover" />
+              : <span className="text-lg font-bold text-white">{person.name[0].toUpperCase()}</span>
             }
           </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '17px', color: '#1a1a1a' }}>{person.name}</div>
-            <div style={{ fontSize: '13px', color: colors.accent, fontWeight: 500, marginTop: '2px' }}>
+          <div className="min-w-0">
+            <div className="truncate text-lg font-bold text-slate-900">{person.name}</div>
+            <div className={`mt-0.5 text-[13px] font-medium ${c.text}`}>
               {person.gender.charAt(0).toUpperCase() + person.gender.slice(1)}
               {person.dateOfBirth && ` · b. ${new Date(person.dateOfBirth).getFullYear()}`}
             </div>
@@ -73,90 +63,111 @@ export default function PersonPanel({
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+      <div className="scrollbar-thin flex-1 overflow-y-auto px-6 py-5">
         {(person.dateOfBirth || person.dateOfDeath) && (
           <Section label="Life">
-            {person.dateOfBirth && <Detail label="Born" value={formatDate(person.dateOfBirth)!} />}
-            {person.dateOfDeath && <Detail label="Passed" value={formatDate(person.dateOfDeath)!} />}
+            <div className="space-y-2">
+              {person.dateOfBirth && <Detail label="Born" value={formatDate(person.dateOfBirth)!} />}
+              {person.dateOfDeath && <Detail label="Passed" value={formatDate(person.dateOfDeath)!} />}
+            </div>
           </Section>
         )}
 
         {(person.phone || person.email) && (
           <Section label="Contact">
-            {person.phone && <Detail label="Phone" value={person.phone} icon={<Phone size={13} />} />}
-            {person.email && <Detail label="Email" value={person.email} icon={<Mail size={13} />} />}
+            <div className="space-y-2">
+              {person.phone && <Detail label="Phone" value={person.phone} icon={<Phone size={13} />} />}
+              {person.email && <Detail label="Email" value={person.email} icon={<Mail size={13} />} />}
+            </div>
           </Section>
         )}
 
         {person.notes && (
           <Section label="Notes">
-            <p style={{ margin: 0, fontSize: '13px', color: '#4a4540', lineHeight: 1.6 }}>{person.notes}</p>
+            <p className="m-0 text-[13px] leading-relaxed text-slate-600">{person.notes}</p>
           </Section>
         )}
 
-        <Section label="Relationships">
-          {personRels.length === 0 ? (
-            <div style={{ fontSize: '13px', color: '#b0a89e', fontStyle: 'italic' }}>No relationships yet</div>
+        <Section label="Family">
+          {!hasAnyFamily ? (
+            <div className="text-[13px] italic text-slate-400">No relationships yet</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {personRels.map(rel => {
-                const related = getRelatedPerson(rel.relatedPersonId);
-                if (!related) return null;
-                return (
-                  <div key={rel.id} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    background: '#f8f7f4', borderRadius: '8px', padding: '8px 10px',
-                  }}>
-                    <div>
-                      <div style={{ fontSize: '11px', color: '#8c7c6a', fontWeight: 600 }}>
-                        {RELATIONSHIP_LABELS[rel.relationshipType as RelationshipType]}
-                      </div>
-                      <button onClick={() => onSelectPerson(related.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#2563eb' }}>{related.name}</span>
-                      </button>
-                    </div>
-                    <button onClick={() => onDeleteRelationship(rel.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#c8bfb0', padding: '4px', borderRadius: '4px' }} title="Remove">
-                      <X size={14} />
-                    </button>
-                  </div>
-                );
-              })}
+            <div className="space-y-4">
+              <FamilyGroup title="Parents" entries={family.parents} onSelect={onSelectPerson} onDelete={onDeleteRelationship} />
+              <FamilyGroup title="Spouse" entries={family.spouses} onSelect={onSelectPerson} onDelete={onDeleteRelationship} />
+              <FamilyGroup title="Children" entries={family.children} onSelect={onSelectPerson} onDelete={onDeleteRelationship} />
+              <FamilyGroup title="Siblings" entries={family.siblings} onSelect={onSelectPerson} onDelete={onDeleteRelationship} />
+              <FamilyGroup title="Extended Family" entries={family.extended} onSelect={onSelectPerson} onDelete={onDeleteRelationship} />
             </div>
           )}
-          <button onClick={onAddRelationship} style={{ ...btnBase, background: '#f0f7ff', color: '#2563eb', marginTop: '10px', width: '100%', justifyContent: 'center' }}>
-            <Plus size={15} /> Add Relationship
+          <button
+            onClick={onQuickAdd}
+            className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 py-2.5 text-[13px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-indigo-700 hover:shadow-md active:scale-[0.98]"
+          >
+            <Plus size={15} /> Quick Add
+          </button>
+          <button
+            onClick={onAddRelationship}
+            className="mt-2 w-full rounded-xl py-2 text-center text-[12px] font-medium text-slate-400 transition-colors duration-150 hover:text-indigo-600"
+          >
+            Add a specific relationship type
           </button>
         </Section>
-      </div>
-
-      <div style={{ padding: '14px 20px', borderTop: '1px solid #e8e4de', display: 'flex', gap: '8px' }}>
-        <button onClick={onEdit} style={{ ...btnBase, flex: 1, background: '#f0ede8', color: '#4a4540', justifyContent: 'center' }}>
-          <Edit2 size={14} /> Edit
-        </button>
-        <button onClick={onDelete} style={{ ...btnBase, flex: 1, background: '#fff0f0', color: '#c0392b', justifyContent: 'center' }}>
-          <Trash2 size={14} /> Delete
-        </button>
       </div>
     </div>
   );
 }
 
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
+function FamilyGroup({ title, entries, onSelect, onDelete }: {
+  title: string; entries: FamilyEntry[]; onSelect: (id: string) => void; onDelete: (id: string) => void;
+}) {
+  if (entries.length === 0) return null;
   return (
-    <div style={{ marginBottom: '20px' }}>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: '#b0a89e', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '8px' }}>{label}</div>
+    <div>
+      <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">{title}</div>
+      <div className="flex flex-col gap-1.5">
+        {entries.map(entry => (
+          <div key={entry.relationshipId} className="flex items-center gap-2.5 rounded-xl bg-slate-50 py-2 pl-2 pr-2.5 transition-colors duration-150 hover:bg-slate-100">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200">
+              {entry.person.photo
+                ? <img src={entry.person.photo} alt={entry.person.name} className="h-full w-full object-cover" />
+                : <span className="text-xs font-bold text-slate-500">{entry.person.name[0]}</span>
+              }
+            </div>
+            <button onClick={() => onSelect(entry.person.id)} className="min-w-0 flex-1 text-left">
+              <div className="truncate text-[13px] font-semibold text-indigo-600 hover:underline">{entry.person.name}</div>
+              <div className="text-[11px] text-slate-400">{entry.label}</div>
+            </button>
+            <button
+              onClick={() => onDelete(entry.relationshipId)}
+              title="Remove relationship"
+              className="shrink-0 rounded-md p-1 text-slate-300 transition-colors duration-150 hover:bg-white hover:text-rose-500"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Section({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="mb-5">
+      <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">{label}</div>
       {children}
     </div>
   );
 }
 
-function Detail({ label, value, icon }: { label: string; value: string; icon?: React.ReactNode }) {
+function Detail({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
-      {icon && <span style={{ color: '#8c7c6a', marginTop: '1px' }}>{icon}</span>}
+    <div className="flex items-start gap-2">
+      {icon && <span className="mt-0.5 text-slate-400">{icon}</span>}
       <div>
-        <div style={{ fontSize: '11px', color: '#8c7c6a' }}>{label}</div>
-        <div style={{ fontSize: '13px', color: '#1a1a1a', fontWeight: 500 }}>{value}</div>
+        <div className="text-[11px] text-slate-400">{label}</div>
+        <div className="text-[13px] font-medium text-slate-900">{value}</div>
       </div>
     </div>
   );
