@@ -27,6 +27,37 @@ export async function initDb() {
       UNIQUE(person_id, related_person_id, relationship_type)
     );
   `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      name TEXT,
+      picture TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      last_login_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      expires_at TIMESTAMPTZ NOT NULL
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions(user_id);`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS settings (
+      id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      family_name TEXT NOT NULL DEFAULT 'My Family Tree',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_by TEXT REFERENCES users(id)
+    );
+  `;
+  await sql`INSERT INTO settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;`;
 }
 
 export function rowToPerson(row) {

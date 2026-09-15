@@ -17,11 +17,18 @@ import PersonPanel from './components/PersonPanel';
 import RelationshipForm from './components/RelationshipForm';
 import ConfirmDialog from './components/ConfirmDialog';
 import QuickAddModal from './components/QuickAddModal';
-import { Search, Plus, Download, Upload, TreePine, Users, Loader2 } from 'lucide-react';
+import LoginScreen from './components/LoginScreen';
+import UserMenu from './components/UserMenu';
+import { getCurrentUser, logout as logoutUser, getFamilyName, updateFamilyName, type AuthUser } from './auth';
+import { Search, Plus, Download, Upload, TreePine, Users, Loader2, Pencil } from 'lucide-react';
 
 const nodeTypes = { personNode: PersonNode };
 
 function FamilyTreeApp() {
+  const [authUser, setAuthUser] = useState<AuthUser | null | undefined>(undefined);
+  const [familyName, setFamilyName] = useState('My Family Tree');
+  const [editingFamilyName, setEditingFamilyName] = useState(false);
+  const [familyNameDraft, setFamilyNameDraft] = useState('');
   const [data, setData] = useState<FamilyData>({ people: [], relationships: [] });
   const [loading, setLoading] = useState(true);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -38,10 +45,40 @@ function FamilyTreeApp() {
   const { fitView, setCenter } = useReactFlow();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load data on mount
+  // Check auth on mount
   useEffect(() => {
-    loadData().then(d => { setData(d); setLoading(false); }).catch(() => setLoading(false));
+    getCurrentUser().then(setAuthUser);
   }, []);
+
+  // Load data once authenticated
+  useEffect(() => {
+    if (!authUser) return;
+    loadData().then(d => { setData(d); setLoading(false); }).catch(() => setLoading(false));
+    getFamilyName().then(setFamilyName).catch(() => {});
+  }, [authUser]);
+
+  async function handleLogout() {
+    await logoutUser();
+    setAuthUser(null);
+    setData({ people: [], relationships: [] });
+    setSelectedPerson(null);
+  }
+
+  function startEditFamilyName() {
+    setFamilyNameDraft(familyName);
+    setEditingFamilyName(true);
+  }
+
+  async function saveFamilyName() {
+    const trimmed = familyNameDraft.trim();
+    setEditingFamilyName(false);
+    if (!trimmed || trimmed === familyName) return;
+    try {
+      setFamilyName(await updateFamilyName(trimmed));
+    } catch {
+      alert('Could not update family name. Please try again.');
+    }
+  }
 
   // Rebuild graph
   useEffect(() => {
@@ -170,13 +207,40 @@ function FamilyTreeApp() {
     color: '#4a4540', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
   };
 
+  if (authUser === undefined) {
+    return (
+      <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f7f4' }}>
+        <Loader2 size={32} color="#3d7ab5" style={{ animation: 'spin 1s linear infinite' }} />
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (authUser === null) {
+    return <LoginScreen />;
+  }
+
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: '#f8f7f4' }}>
       {/* Header */}
       <header style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '0 20px', height: 56, borderBottom: '1px solid #e8e4de', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', flexShrink: 0, zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px' }}>
           <TreePine size={22} color="#3d7ab5" />
-          <span style={{ fontWeight: 800, fontSize: '16px', color: '#1a1a1a', letterSpacing: '-0.02em' }}>My Family Tree</span>
+          {editingFamilyName ? (
+            <input
+              autoFocus
+              value={familyNameDraft}
+              onChange={e => setFamilyNameDraft(e.target.value)}
+              onBlur={saveFamilyName}
+              onKeyDown={e => { if (e.key === 'Enter') saveFamilyName(); if (e.key === 'Escape') setEditingFamilyName(false); }}
+              style={{ fontWeight: 800, fontSize: '16px', color: '#1a1a1a', letterSpacing: '-0.02em', border: '1.5px solid #2563eb', borderRadius: '6px', padding: '2px 6px', fontFamily: 'inherit', outline: 'none', width: 180 }}
+            />
+          ) : (
+            <button onClick={startEditFamilyName} title="Edit family name" style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+              <span style={{ fontWeight: 800, fontSize: '16px', color: '#1a1a1a', letterSpacing: '-0.02em' }}>{familyName}</span>
+              <Pencil size={12} color="#c8bfb0" />
+            </button>
+          )}
         </div>
 
         <div style={{ flex: 1, maxWidth: 320, position: 'relative' }}>
@@ -213,6 +277,7 @@ function FamilyTreeApp() {
           <button onClick={() => setShowAddPerson(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', border: 'none', borderRadius: '10px', background: '#2563eb', color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
             <Plus size={16} /> Add Person
           </button>
+          <UserMenu user={authUser} onLogout={handleLogout} />
         </div>
       </header>
 
