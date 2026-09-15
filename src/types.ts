@@ -19,7 +19,10 @@ export type RelationshipType =
   | 'husband' | 'wife' | 'spouse'
   | 'brother' | 'sister'
   | 'grandfather' | 'grandmother' | 'grandson' | 'granddaughter'
-  | 'uncle' | 'aunt' | 'nephew' | 'niece' | 'cousin';
+  | 'uncle' | 'aunt' | 'nephew' | 'niece' | 'cousin'
+  // Gender-neutral forms, used only when auto-generating the inverse of a
+  // relationship for a person whose gender is 'other' or 'unknown'.
+  | 'parent' | 'child' | 'sibling' | 'grandparent' | 'grandchild' | 'auntUncle' | 'nieceNephew';
 
 export interface Relationship {
   id: string;
@@ -42,6 +45,9 @@ export const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
   grandson: 'Grandson', granddaughter: 'Granddaughter',
   uncle: 'Uncle', aunt: 'Aunt',
   nephew: 'Nephew', niece: 'Niece', cousin: 'Cousin',
+  parent: 'Parent', child: 'Child', sibling: 'Sibling',
+  grandparent: 'Grandparent', grandchild: 'Grandchild',
+  auntUncle: 'Aunt/Uncle', nieceNephew: 'Niece/Nephew',
 };
 
 export const RELATIONSHIP_GROUPS = {
@@ -54,23 +60,23 @@ export const RELATIONSHIP_GROUPS = {
 // Returns inverse relationship, accounting for gender
 export function getInverseRelationship(type: RelationshipType, gender: Gender): RelationshipType | null {
   const map: Partial<Record<RelationshipType, { male: RelationshipType; female: RelationshipType; other: RelationshipType }>> = {
-    father: { male: 'son', female: 'daughter', other: 'son' },
-    mother: { male: 'son', female: 'daughter', other: 'son' },
-    son: { male: 'father', female: 'mother', other: 'parent' as RelationshipType },
-    daughter: { male: 'father', female: 'mother', other: 'parent' as RelationshipType },
+    father: { male: 'son', female: 'daughter', other: 'child' },
+    mother: { male: 'son', female: 'daughter', other: 'child' },
+    son: { male: 'father', female: 'mother', other: 'parent' },
+    daughter: { male: 'father', female: 'mother', other: 'parent' },
     husband: { male: 'husband', female: 'wife', other: 'spouse' },
     wife: { male: 'husband', female: 'wife', other: 'spouse' },
     spouse: { male: 'husband', female: 'wife', other: 'spouse' },
-    brother: { male: 'brother', female: 'sister', other: 'sibling' as RelationshipType },
-    sister: { male: 'brother', female: 'sister', other: 'sibling' as RelationshipType },
-    grandfather: { male: 'grandson', female: 'granddaughter', other: 'grandson' },
-    grandmother: { male: 'grandson', female: 'granddaughter', other: 'grandson' },
-    grandson: { male: 'grandfather', female: 'grandmother', other: 'grandfather' },
-    granddaughter: { male: 'grandfather', female: 'grandmother', other: 'grandfather' },
-    uncle: { male: 'nephew', female: 'niece', other: 'nephew' },
-    aunt: { male: 'nephew', female: 'niece', other: 'nephew' },
-    nephew: { male: 'uncle', female: 'aunt', other: 'uncle' },
-    niece: { male: 'uncle', female: 'aunt', other: 'uncle' },
+    brother: { male: 'brother', female: 'sister', other: 'sibling' },
+    sister: { male: 'brother', female: 'sister', other: 'sibling' },
+    grandfather: { male: 'grandson', female: 'granddaughter', other: 'grandchild' },
+    grandmother: { male: 'grandson', female: 'granddaughter', other: 'grandchild' },
+    grandson: { male: 'grandfather', female: 'grandmother', other: 'grandparent' },
+    granddaughter: { male: 'grandfather', female: 'grandmother', other: 'grandparent' },
+    uncle: { male: 'nephew', female: 'niece', other: 'nieceNephew' },
+    aunt: { male: 'nephew', female: 'niece', other: 'nieceNephew' },
+    nephew: { male: 'uncle', female: 'aunt', other: 'auntUncle' },
+    niece: { male: 'uncle', female: 'aunt', other: 'auntUncle' },
     cousin: { male: 'cousin', female: 'cousin', other: 'cousin' },
   };
 

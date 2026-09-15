@@ -26,10 +26,10 @@ function buildTreeNodes(people: Person[], relationships: Relationship[]): Map<st
     const to = nodeMap.get(rel.relatedPersonId);
     if (!from || !to) continue;
 
-    if (['father', 'mother', 'grandfather', 'grandmother'].includes(rel.relationshipType)) {
+    if (['father', 'mother', 'grandfather', 'grandmother', 'parent', 'grandparent'].includes(rel.relationshipType)) {
       if (!from.children.includes(to)) from.children.push(to);
       if (!to.parents.includes(from)) to.parents.push(from);
-    } else if (['son', 'daughter', 'grandson', 'granddaughter'].includes(rel.relationshipType)) {
+    } else if (['son', 'daughter', 'grandson', 'granddaughter', 'child', 'grandchild'].includes(rel.relationshipType)) {
       if (!to.children.includes(from)) to.children.push(from);
       if (!from.parents.includes(to)) from.parents.push(to);
     }
@@ -100,7 +100,7 @@ export function buildFlowGraph(people: Person[], relationships: Relationship[]):
     edgeSet.add(key);
 
     const isSpouse = ['husband', 'wife', 'spouse'].includes(rel.relationshipType);
-    const isSibling = ['brother', 'sister'].includes(rel.relationshipType);
+    const isSibling = ['brother', 'sister', 'sibling'].includes(rel.relationshipType);
 
     edges.push({
       id: rel.id,
@@ -120,7 +120,7 @@ export function buildFlowGraph(people: Person[], relationships: Relationship[]):
 
 function getEdgeGroup(type: string): string {
   if (['husband', 'wife', 'spouse'].includes(type)) return 'spouse';
-  if (['brother', 'sister'].includes(type)) return 'sibling';
-  if (['father', 'mother', 'son', 'daughter'].includes(type)) return 'parent';
+  if (['brother', 'sister', 'sibling'].includes(type)) return 'sibling';
+  if (['father', 'mother', 'son', 'daughter', 'parent', 'child'].includes(type)) return 'parent';
   return 'extended';
 }

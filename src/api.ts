@@ -115,9 +115,9 @@ export async function addRelationship(
   const newRels: Relationship[] = [newRel];
 
   // Auto-inverse
-  const relatedPerson = data.people.find(p => p.id === relatedPersonId);
-  if (relatedPerson) {
-    const inverseType = getInverseRelationship(relationshipType, relatedPerson.gender);
+  const originPerson = data.people.find(p => p.id === personId);
+  if (originPerson) {
+    const inverseType = getInverseRelationship(relationshipType, originPerson.gender);
     if (inverseType) {
       const inverseExists = data.relationships.some(
         r => r.personId === relatedPersonId && r.relatedPersonId === personId && r.relationshipType === inverseType
