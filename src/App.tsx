@@ -8,7 +8,7 @@ import type { FamilyData, Person, RelationshipType, Gender } from './types';
 import {
   loadData, createPerson, updatePerson, deletePerson,
   addRelationship, deleteRelationship,
-  generateId, exportToFile, importFromFile, importToDb,
+  exportToFile, importFromFile, importToDb,
 } from './api';
 import { buildFlowGraph } from './treeLayout';
 import PersonNode from './components/PersonNode';
@@ -69,56 +69,81 @@ function FamilyTreeApp() {
 
   // ── CRUD handlers ──────────────────────────────────────────────────
   async function handleAddPerson(personData: Omit<Person, 'id' | 'createdAt' | 'updatedAt'>) {
-    const { data: newData, person } = await createPerson(data, personData);
-    setData(newData);
-    setShowAddPerson(false);
-    setTimeout(() => centerOnPerson(person.id), 300);
+    try {
+      const { data: newData, person } = await createPerson(data, personData);
+      setData(newData);
+      setShowAddPerson(false);
+      setTimeout(() => centerOnPerson(person.id), 300);
+    } catch {
+      alert('Could not add person. Please try again.');
+    }
   }
 
   async function handleEditPerson(personData: Omit<Person, 'id' | 'createdAt' | 'updatedAt'>) {
     if (!selectedPerson) return;
-    const newData = await updatePerson(data, selectedPerson.id, personData);
-    setData(newData);
-    setSelectedPerson({ ...selectedPerson, ...personData });
-    setShowEditPerson(false);
+    try {
+      const newData = await updatePerson(data, selectedPerson.id, personData);
+      setData(newData);
+      setSelectedPerson({ ...selectedPerson, ...personData });
+      setShowEditPerson(false);
+    } catch {
+      alert('Could not save changes. Please try again.');
+    }
   }
 
   async function handleDeletePerson() {
     if (!confirmDelete) return;
-    const newData = await deletePerson(data, confirmDelete);
-    setData(newData);
-    setConfirmDelete(null);
-    if (selectedPerson?.id === confirmDelete) setSelectedPerson(null);
+    try {
+      const newData = await deletePerson(data, confirmDelete);
+      setData(newData);
+      setConfirmDelete(null);
+      if (selectedPerson?.id === confirmDelete) setSelectedPerson(null);
+    } catch {
+      alert('Could not delete person. Please try again.');
+    }
   }
 
   async function handleAddRelationship(relatedPersonId: string, type: RelationshipType) {
     if (!selectedPerson) return;
-    const newData = await addRelationship(data, selectedPerson.id, relatedPersonId, type);
-    setData(newData);
-    setShowAddRelationship(false);
+    try {
+      const newData = await addRelationship(data, selectedPerson.id, relatedPersonId, type);
+      setData(newData);
+      setShowAddRelationship(false);
+    } catch {
+      alert('Could not add relationship. Please try again.');
+    }
   }
 
   async function handleDeleteRelationship(relId: string) {
-    setData(await deleteRelationship(data, relId));
+    try {
+      setData(await deleteRelationship(data, relId));
+    } catch {
+      alert('Could not delete relationship. Please try again.');
+    }
   }
 
   async function handleQuickAddCreate(name: string, gender: Gender, relType: RelationshipType) {
     if (!selectedPerson) return;
-    const now = new Date().toISOString();
-    const newPerson: Person = { id: generateId(), name, gender, createdAt: now, updatedAt: now };
-    const d1: FamilyData = { ...data, people: [...data.people, newPerson] };
-    // Save person to API first
-    const { data: d1saved } = await createPerson(data, { name, gender });
-    const d2 = await addRelationship(d1saved, selectedPerson.id, d1saved.people[d1saved.people.length - 1].id, relType);
-    setData(d2);
-    setShowQuickAdd(false);
-    setTimeout(() => centerOnPerson(newPerson.id), 300);
+    try {
+      const { data: d1saved } = await createPerson(data, { name, gender });
+      const newPerson = d1saved.people[d1saved.people.length - 1];
+      const d2 = await addRelationship(d1saved, selectedPerson.id, newPerson.id, relType);
+      setData(d2);
+      setShowQuickAdd(false);
+      setTimeout(() => centerOnPerson(newPerson.id), 300);
+    } catch {
+      alert('Could not add person. Please try again.');
+    }
   }
 
   async function handleQuickAddExisting(existingId: string, relType: RelationshipType) {
     if (!selectedPerson) return;
-    setData(await addRelationship(data, selectedPerson.id, existingId, relType));
-    setShowQuickAdd(false);
+    try {
+      setData(await addRelationship(data, selectedPerson.id, existingId, relType));
+      setShowQuickAdd(false);
+    } catch {
+      alert('Could not add relationship. Please try again.');
+    }
   }
 
   async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
