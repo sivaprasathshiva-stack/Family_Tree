@@ -60,7 +60,18 @@ for (const rel of relationships) {
     proposed++;
     console.log(`${rel.id}: ${rel.relationship_type} -> ${expected} (related person = ${related.name}, gender = ${related.gender})`);
     if (apply) {
-      await sql`UPDATE relationships SET relationship_type = ${expected} WHERE id = ${rel.id}`;
+      try {
+        await sql`UPDATE relationships SET relationship_type = ${expected} WHERE id = ${rel.id}`;
+      } catch (err) {
+        if (err.code === '23505') {
+          // A correct duplicate row already exists for this (person, related, type) —
+          // this row is a redundant leftover from the bug, so drop it instead.
+          await sql`DELETE FROM relationships WHERE id = ${rel.id}`;
+          console.log(`  -> duplicate already existed; deleted redundant row ${rel.id} instead`);
+        } else {
+          throw err;
+        }
+      }
     }
   }
 }
