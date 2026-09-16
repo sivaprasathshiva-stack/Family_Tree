@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { Node, Edge, NodeMouseHandler } from '@xyflow/react';
+import type { Node, Edge, NodeMouseHandler, OnNodeDrag } from '@xyflow/react';
 import {
   ReactFlow, Controls, MiniMap, Background, BackgroundVariant,
   useNodesState, useEdgesState, useReactFlow, ReactFlowProvider,
@@ -131,6 +131,18 @@ function FamilyTreeApp() {
     const person = data.people.find(p => p.id === targetId);
     if (person) setSelectedPerson(person);
   }, [data.people]);
+
+  // Persist a manual drag so it survives the next layout rebuild. Only in the
+  // default (unfocused) view — the focused view's coordinates are relative to
+  // whoever is centered, so they can't be reused as an absolute saved position.
+  const handleNodeDragStop: OnNodeDrag = useCallback((_evt, node) => {
+    if (selectedPerson || node.id.startsWith('more-')) return;
+    const person = data.people.find(p => p.id === node.id);
+    if (!person) return;
+    updatePerson(data, node.id, { posX: node.position.x, posY: node.position.y })
+      .then(setData)
+      .catch(() => {});
+  }, [data, selectedPerson]);
 
   function centerOnPerson(personId: string) {
     const node = nodes.find(n => n.id === personId);
@@ -379,6 +391,7 @@ function FamilyTreeApp() {
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             onNodeClick={handleNodeClick}
+            onNodeDragStop={handleNodeDragStop}
             fitView fitViewOptions={{ padding: 0.2 }}
             minZoom={0.1} maxZoom={2.5}
           >

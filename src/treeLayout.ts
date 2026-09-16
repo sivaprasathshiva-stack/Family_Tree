@@ -256,6 +256,12 @@ export function buildFlowGraph(people: Person[], relationships: Relationship[]):
   assignLevels(nodeMap, relationships);
   assignPositions(nodeMap, relationships, rootByPerson);
 
+  // A manually dragged person keeps their saved spot instead of the computed one.
+  for (const tn of nodeMap.values()) {
+    if (tn.person.posX !== undefined) tn.x = tn.person.posX;
+    if (tn.person.posY !== undefined) tn.y = tn.person.posY;
+  }
+
   const nodes: Node[] = [...nodeMap.values()].map(tn => ({
     id: tn.person.id,
     type: 'personNode',

@@ -13,10 +13,10 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { id, name, gender, dateOfBirth, dateOfDeath, photo, phone, email, notes, createdAt, updatedAt } = req.body;
+    const { id, name, gender, dateOfBirth, dateOfDeath, photo, phone, email, notes, posX, posY, createdAt, updatedAt } = req.body;
     const { rows } = await sql`
-      INSERT INTO people (id, name, gender, date_of_birth, date_of_death, photo, phone, email, notes, created_at, updated_at)
-      VALUES (${id}, ${name}, ${gender}, ${dateOfBirth || null}, ${dateOfDeath || null}, ${photo || null}, ${phone || null}, ${email || null}, ${notes || null}, ${createdAt}, ${updatedAt})
+      INSERT INTO people (id, name, gender, date_of_birth, date_of_death, photo, phone, email, notes, pos_x, pos_y, created_at, updated_at)
+      VALUES (${id}, ${name}, ${gender}, ${dateOfBirth || null}, ${dateOfDeath || null}, ${photo || null}, ${phone || null}, ${email || null}, ${notes || null}, ${posX ?? null}, ${posY ?? null}, ${createdAt}, ${updatedAt})
       RETURNING *
     `;
     return res.status(201).json(rowToPerson(rows[0]));

@@ -10,6 +10,10 @@ export interface Person {
   phone?: string;
   email?: string;
   notes?: string;
+  // Manually dragged position in the default (unfocused) tree view — when set,
+  // overrides the auto-computed layout position so a drag persists.
+  posX?: number;
+  posY?: number;
   createdAt: string;
   updatedAt: string;
 }

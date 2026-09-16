@@ -13,8 +13,8 @@ export default async function handler(req, res) {
     // Insert all people first
     for (const p of people) {
       await sql`
-        INSERT INTO people (id, name, gender, date_of_birth, date_of_death, photo, phone, email, notes, created_at, updated_at)
-        VALUES (${p.id}, ${p.name}, ${p.gender}, ${p.dateOfBirth || null}, ${p.dateOfDeath || null}, ${p.photo || null}, ${p.phone || null}, ${p.email || null}, ${p.notes || null}, ${p.createdAt}, ${p.updatedAt})
+        INSERT INTO people (id, name, gender, date_of_birth, date_of_death, photo, phone, email, notes, pos_x, pos_y, created_at, updated_at)
+        VALUES (${p.id}, ${p.name}, ${p.gender}, ${p.dateOfBirth || null}, ${p.dateOfDeath || null}, ${p.photo || null}, ${p.phone || null}, ${p.email || null}, ${p.notes || null}, ${p.posX ?? null}, ${p.posY ?? null}, ${p.createdAt}, ${p.updatedAt})
         ON CONFLICT (id) DO UPDATE SET
           name = EXCLUDED.name,
           gender = EXCLUDED.gender,
@@ -24,6 +24,8 @@ export default async function handler(req, res) {
           phone = EXCLUDED.phone,
           email = EXCLUDED.email,
           notes = EXCLUDED.notes,
+          pos_x = EXCLUDED.pos_x,
+          pos_y = EXCLUDED.pos_y,
           updated_at = EXCLUDED.updated_at
       `;
     }

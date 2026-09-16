@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   const { id } = req.query;
 
   if (req.method === 'PUT') {
-    const { name, gender, dateOfBirth, dateOfDeath, photo, phone, email, notes, updatedAt } = req.body;
+    const { name, gender, dateOfBirth, dateOfDeath, photo, phone, email, notes, posX, posY, updatedAt } = req.body;
     const { rows } = await sql`
       UPDATE people SET
         name = ${name},
@@ -20,6 +20,8 @@ export default async function handler(req, res) {
         phone = ${phone || null},
         email = ${email || null},
         notes = ${notes || null},
+        pos_x = ${posX ?? null},
+        pos_y = ${posY ?? null},
         updated_at = ${updatedAt}
       WHERE id = ${id}
       RETURNING *

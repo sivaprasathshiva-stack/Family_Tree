@@ -12,10 +12,15 @@ export async function initDb() {
       phone TEXT,
       email TEXT,
       notes TEXT,
+      pos_x DOUBLE PRECISION,
+      pos_y DOUBLE PRECISION,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `;
+  // Existing deployments predate pos_x/pos_y — add them if missing.
+  await sql`ALTER TABLE people ADD COLUMN IF NOT EXISTS pos_x DOUBLE PRECISION;`;
+  await sql`ALTER TABLE people ADD COLUMN IF NOT EXISTS pos_y DOUBLE PRECISION;`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS relationships (
@@ -71,6 +76,8 @@ export function rowToPerson(row) {
     phone: row.phone || undefined,
     email: row.email || undefined,
     notes: row.notes || undefined,
+    posX: row.pos_x ?? undefined,
+    posY: row.pos_y ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
