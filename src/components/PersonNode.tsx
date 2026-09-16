@@ -6,11 +6,10 @@ import { genderClasses } from '../theme';
 
 interface PersonNodeData {
   person: Person;
-  dimmed?: boolean;
 }
 
 function PersonNode({ data, selected }: NodeProps) {
-  const { person, dimmed } = data as unknown as PersonNodeData;
+  const { person } = data as unknown as PersonNodeData;
   const c = genderClasses(person.gender);
   const birthYear = person.dateOfBirth ? new Date(person.dateOfBirth).getFullYear() : null;
   const deathYear = person.dateOfDeath ? new Date(person.dateOfDeath).getFullYear() : null;
@@ -20,7 +19,6 @@ function PersonNode({ data, selected }: NodeProps) {
       className={[
         'relative flex w-[180px] min-h-[88px] flex-col items-center gap-1.5 rounded-2xl border-2 px-3.5 py-3',
         'cursor-pointer transition-all duration-200 ease-out',
-        dimmed ? 'opacity-20 grayscale' : 'opacity-100',
         selected
           ? 'border-indigo-500 shadow-[0_0_0_4px_rgba(79,70,229,0.14),0_8px_20px_rgba(15,23,42,0.14)] -translate-y-0.5'
           : `${c.border} shadow-sm hover:shadow-lg hover:-translate-y-0.5`,

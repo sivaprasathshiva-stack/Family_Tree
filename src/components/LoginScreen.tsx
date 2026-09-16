@@ -2,7 +2,7 @@ import { TreePine } from 'lucide-react';
 
 export default function LoginScreen() {
   return (
-    <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-slate-50 p-4">
+    <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden bg-slate-50 p-4">
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -38,6 +38,10 @@ export default function LoginScreen() {
           Works with any Google account — share it with family to invite them.
         </p>
       </div>
+
+      <p className="animate-fade-in relative mt-7 max-w-[380px] px-4 text-center text-[13px] italic leading-relaxed text-slate-400 sm:absolute sm:bottom-8 sm:mt-0">
+        “Know your roots. Cherish your connections.”
+      </p>
     </div>
   );
 }

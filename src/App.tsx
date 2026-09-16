@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Node, Edge, NodeMouseHandler } from '@xyflow/react';
 import {
   ReactFlow, Controls, MiniMap, Background, BackgroundVariant,
@@ -10,10 +10,10 @@ import {
   addRelationship, deleteRelationship,
   exportToFile, importFromFile, importToDb,
 } from './api';
-import { buildFlowGraph } from './treeLayout';
-import { getImmediateFamily, applyNodeFocus, applyEdgeFocus } from './relationsFocus';
+import { buildFlowGraph, buildFocusedGraph } from './treeLayout';
 import { genderColors } from './theme';
 import PersonNode from './components/PersonNode';
+import Avatar from './components/Avatar';
 import PersonForm from './components/PersonForm';
 import PersonPanel from './components/PersonPanel';
 import RelationshipForm from './components/RelationshipForm';
@@ -22,7 +22,7 @@ import QuickAddModal from './components/QuickAddModal';
 import LoginScreen from './components/LoginScreen';
 import UserMenu from './components/UserMenu';
 import { getCurrentUser, logout as logoutUser, getFamilyName, updateFamilyName, type AuthUser } from './auth';
-import { Search, Plus, Download, Upload, TreePine, Users, Loader2, Pencil, Maximize2, X } from 'lucide-react';
+import { Search, Plus, Download, Upload, TreePine, Users, Loader2, Pencil, Maximize2 } from 'lucide-react';
 
 const nodeTypes = { personNode: PersonNode };
 
@@ -48,9 +48,10 @@ function FamilyTreeApp() {
   const { fitView, setCenter } = useReactFlow();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Check auth on mount
+  // Check auth on mount. A failed check (network error, etc.) is treated as
+  // logged-out rather than leaving the app stuck on the loading spinner.
   useEffect(() => {
-    getCurrentUser().then(setAuthUser);
+    getCurrentUser().then(setAuthUser).catch(() => setAuthUser(null));
   }, []);
 
   // Load data once authenticated
@@ -83,12 +84,33 @@ function FamilyTreeApp() {
     }
   }
 
-  // Rebuild graph
+  // Rebuild the graph whenever the data changes or the focused person changes.
+  // Selecting someone re-centers the whole layout on them (parents/grandparents
+  // above, spouse/siblings/cousins alongside, children/grandchildren below);
+  // clearing the selection returns to the fixed default tree.
+  const prevFocusId = useRef<string | null>(null);
   useEffect(() => {
-    const { nodes: n, edges: e } = buildFlowGraph(data.people, data.relationships);
+    const focusId = selectedPerson?.id ?? null;
+    const { nodes: n, edges: e } = focusId
+      ? buildFocusedGraph(focusId, data.people, data.relationships)
+      : buildFlowGraph(data.people, data.relationships);
     setNodes(n);
     setEdges(e);
-  }, [data]);
+
+    const focusChanged = focusId !== prevFocusId.current;
+    prevFocusId.current = focusId;
+    if (!focusChanged) return;
+
+    const timer = setTimeout(() => {
+      if (focusId) {
+        const node = n.find(x => x.id === focusId);
+        if (node) setCenter(node.position.x + 90, node.position.y + 45, { zoom: 1.15, duration: 500 });
+      } else {
+        fitView({ padding: 0.2, duration: 500 });
+      }
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [data, selectedPerson?.id]);
 
   // Search
   useEffect(() => {
@@ -96,14 +118,6 @@ function FamilyTreeApp() {
     const q = searchQuery.toLowerCase();
     setSearchResults(data.people.filter(p => p.name.toLowerCase().includes(q)));
   }, [searchQuery, data.people]);
-
-  // "Click a person to see their family" — dim everything outside their immediate family.
-  const focusIds = useMemo(
-    () => (selectedPerson ? getImmediateFamily(selectedPerson.id, data.relationships, data.people).allIds : null),
-    [selectedPerson, data.relationships, data.people]
-  );
-  const displayNodes = useMemo(() => applyNodeFocus(nodes, focusIds, selectedPerson?.id ?? null), [nodes, focusIds, selectedPerson]);
-  const displayEdges = useMemo(() => applyEdgeFocus(edges, focusIds, selectedPerson?.id ?? null), [edges, focusIds, selectedPerson]);
 
   const handleNodeClick: NodeMouseHandler = useCallback((_evt, node) => {
     const person = data.people.find(p => p.id === node.id);
@@ -265,12 +279,10 @@ function FamilyTreeApp() {
               {searchResults.slice(0, 6).map(p => (
                 <button
                   key={p.id}
-                  onClick={() => { centerOnPerson(p.id); setSelectedPerson(p); setSearchQuery(''); }}
+                  onClick={() => { setSelectedPerson(p); setSearchQuery(''); }}
                   className="flex w-full items-center gap-2.5 border-b border-slate-100 px-3.5 py-2 text-left transition-colors last:border-b-0 hover:bg-slate-50"
                 >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200">
-                    {p.photo ? <img src={p.photo} alt={p.name} className="h-full w-full object-cover" /> : <span className="text-[11px] font-bold text-slate-500">{p.name[0]}</span>}
-                  </div>
+                  <Avatar photo={p.photo} name={p.name} gender={p.gender} size={28} />
                   <span className="truncate text-[13px] font-semibold text-slate-900">{p.name}</span>
                 </button>
               ))}
@@ -322,12 +334,10 @@ function FamilyTreeApp() {
               {searchResults.slice(0, 8).map(p => (
                 <button
                   key={p.id}
-                  onClick={() => { centerOnPerson(p.id); setSelectedPerson(p); setSearchQuery(''); setMobileSearchOpen(false); }}
+                  onClick={() => { setSelectedPerson(p); setSearchQuery(''); setMobileSearchOpen(false); }}
                   className="flex w-full items-center gap-2.5 border-b border-slate-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-slate-50"
                 >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200">
-                    {p.photo ? <img src={p.photo} alt={p.name} className="h-full w-full object-cover" /> : <span className="text-[11px] font-bold text-slate-500">{p.name[0]}</span>}
-                  </div>
+                  <Avatar photo={p.photo} name={p.name} gender={p.gender} size={28} />
                   <span className="truncate text-[13px] font-semibold text-slate-900">{p.name}</span>
                 </button>
               ))}
@@ -356,7 +366,7 @@ function FamilyTreeApp() {
           </div>
         ) : (
           <ReactFlow
-            nodes={displayNodes} edges={displayEdges}
+            nodes={nodes} edges={edges}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
             nodeTypes={nodeTypes}
             onNodeClick={handleNodeClick}
@@ -367,6 +377,7 @@ function FamilyTreeApp() {
             <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#e2e8f0" />
             <Controls showInteractive={false} />
             <MiniMap
+              className="!hidden sm:!block"
               nodeColor={(n) => {
                 const p = data.people.find(x => x.id === n.id);
                 return p ? genderColors(p.gender).solid : '#cbd5e1';
@@ -384,15 +395,6 @@ function FamilyTreeApp() {
             <Maximize2 size={12} /> Fit to Screen
           </button>
         )}
-
-        {selectedPerson && !anyModalOpen && (
-          <button
-            onClick={() => setSelectedPerson(null)}
-            className="absolute bottom-5 left-5 z-10 flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 shadow-md transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 active:scale-95 sm:hidden"
-          >
-            <X size={12} /> Clear focus
-          </button>
-        )}
       </div>
 
       {/* Side panel */}
@@ -404,7 +406,7 @@ function FamilyTreeApp() {
           onAddRelationship={() => setShowAddRelationship(true)}
           onQuickAdd={() => setShowQuickAdd(true)}
           onDeleteRelationship={handleDeleteRelationship}
-          onSelectPerson={id => { const p = data.people.find(x => x.id === id); if (p) { setSelectedPerson(p); centerOnPerson(id); } }}
+          onSelectPerson={id => { const p = data.people.find(x => x.id === id); if (p) setSelectedPerson(p); }}
           onClose={() => setSelectedPerson(null)}
         />
       )}

@@ -3,6 +3,7 @@ import type { Person, Relationship } from '../types';
 import { getImmediateFamily, type FamilyEntry } from '../relationsFocus';
 import { genderClasses } from '../theme';
 import { X, Edit2, Trash2, Plus, Phone, Mail } from 'lucide-react';
+import Avatar from './Avatar';
 
 interface PersonPanelProps {
   person: Person;
@@ -47,12 +48,7 @@ export default function PersonPanel({
           </button>
         </div>
         <div className="flex items-center gap-3.5">
-          <div className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-white shadow ${c.solidBg}`}>
-            {person.photo
-              ? <img src={person.photo} alt={person.name} className="h-full w-full object-cover" />
-              : <span className="text-lg font-bold text-white">{person.name[0].toUpperCase()}</span>
-            }
-          </div>
+          <Avatar photo={person.photo} name={person.name} gender={person.gender} size={56} className="border-2 border-white shadow" />
           <div className="min-w-0">
             <div className="truncate text-lg font-bold text-slate-900">{person.name}</div>
             <div className={`mt-0.5 text-[13px] font-medium ${c.text}`}>
@@ -128,12 +124,7 @@ function FamilyGroup({ title, entries, onSelect, onDelete }: {
       <div className="flex flex-col gap-1.5">
         {entries.map(entry => (
           <div key={entry.relationshipId} className="flex items-center gap-2.5 rounded-xl bg-slate-50 py-2 pl-2 pr-2.5 transition-colors duration-150 hover:bg-slate-100">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200">
-              {entry.person.photo
-                ? <img src={entry.person.photo} alt={entry.person.name} className="h-full w-full object-cover" />
-                : <span className="text-xs font-bold text-slate-500">{entry.person.name[0]}</span>
-              }
-            </div>
+            <Avatar photo={entry.person.photo} name={entry.person.name} gender={entry.person.gender} size={32} />
             <button onClick={() => onSelect(entry.person.id)} className="min-w-0 flex-1 text-left">
               <div className="truncate text-[13px] font-semibold text-indigo-600 hover:underline">{entry.person.name}</div>
               <div className="text-[11px] text-slate-400">{entry.label}</div>

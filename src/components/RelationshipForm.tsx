@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Person, RelationshipType } from '../types';
 import { RELATIONSHIP_LABELS, RELATIONSHIP_GROUPS } from '../types';
 import { X, Search, Check } from 'lucide-react';
+import Avatar from './Avatar';
 
 interface RelationshipFormProps {
   currentPerson: Person;
@@ -88,9 +89,7 @@ export default function RelationshipForm({ currentPerson, people, onSave, onCanc
                       selectedPerson?.id === p.id ? 'bg-indigo-50' : 'bg-white hover:bg-slate-50'
                     }`}
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200">
-                      {p.photo ? <img src={p.photo} alt={p.name} className="h-full w-full object-cover" /> : <span className="text-xs font-bold text-slate-500">{p.name[0]}</span>}
-                    </div>
+                    <Avatar photo={p.photo} name={p.name} gender={p.gender} size={32} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[13px] font-semibold text-slate-900">{p.name}</div>
                       <div className="text-[11px] capitalize text-slate-400">{p.gender}</div>

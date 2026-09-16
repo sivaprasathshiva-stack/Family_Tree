@@ -1,4 +1,3 @@
-import type { Node, Edge } from '@xyflow/react';
 import type { Person, Relationship, RelationshipType } from './types';
 import { RELATIONSHIP_LABELS } from './types';
 
@@ -42,19 +41,4 @@ export function getImmediateFamily(personId: string, relationships: Relationship
   }
 
   return result;
-}
-
-// Dims every node except the selected person and their immediate family.
-export function applyNodeFocus(nodes: Node[], focusIds: Set<string> | null, selectedId: string | null): Node[] {
-  if (!focusIds) return nodes.map(n => (n.data.dimmed ? { ...n, data: { ...n.data, dimmed: false } } : n));
-  return nodes.map(n => ({ ...n, data: { ...n.data, dimmed: n.id !== selectedId && !focusIds.has(n.id) } }));
-}
-
-// Fades edges not directly touching the selected person.
-export function applyEdgeFocus(edges: Edge[], focusIds: Set<string> | null, selectedId: string | null): Edge[] {
-  if (!focusIds) return edges.map(e => (e.style?.opacity !== 1 ? { ...e, style: { ...e.style, opacity: 1 } } : e));
-  return edges.map(e => ({
-    ...e,
-    style: { ...e.style, opacity: e.source === selectedId || e.target === selectedId ? 1 : 0.12 },
-  }));
 }

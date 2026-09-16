@@ -3,6 +3,7 @@ import type { Person, RelationshipType, Gender } from '../types';
 import { QUICK_ADD_RELATIONS, RELATIONSHIP_LABELS } from '../types';
 import { genderClasses } from '../theme';
 import { X, Plus, Search, ArrowLeft } from 'lucide-react';
+import Avatar from './Avatar';
 
 interface QuickAddModalProps {
   currentPerson: Person;
@@ -137,9 +138,7 @@ export default function QuickAddModal({ currentPerson, people, onCreateAndRelate
                           onClick={() => onRelateExisting(p.id, relType)}
                           className="flex w-full items-center gap-2.5 border-b border-slate-100 bg-white px-3.5 py-2.5 text-left transition-colors duration-150 last:border-b-0 hover:bg-slate-50"
                         >
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200">
-                            {p.photo ? <img src={p.photo} alt={p.name} className="h-full w-full object-cover" /> : <span className="text-xs font-bold text-slate-500">{p.name[0]}</span>}
-                          </div>
+                          <Avatar photo={p.photo} name={p.name} gender={p.gender} size={32} />
                           <span className="truncate text-[13px] font-semibold text-slate-900">{p.name}</span>
                         </button>
                       ))
