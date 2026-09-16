@@ -8,39 +8,95 @@ const V_GAP = 100;
 
 const SPOUSE_TYPES: RelationshipType[] = ['husband', 'wife', 'spouse'];
 const SIBLING_TYPES: RelationshipType[] = ['brother', 'sister', 'sibling'];
+// relatedPersonId is personId's parent for these types — the edge runs child -> parent.
+const PARENT_REL_TYPES: RelationshipType[] = ['father', 'mother', 'parent'];
+// relatedPersonId is personId's child for these types — the edge runs parent -> child.
+const CHILD_REL_TYPES: RelationshipType[] = ['son', 'daughter', 'child'];
 
 function getEdgeGroup(type: RelationshipType): string {
   if (SPOUSE_TYPES.includes(type)) return 'spouse';
   if (SIBLING_TYPES.includes(type)) return 'sibling';
-  if (['father', 'mother', 'son', 'daughter', 'parent', 'child'].includes(type)) return 'parent';
+  if (PARENT_REL_TYPES.includes(type) || CHILD_REL_TYPES.includes(type)) return 'parent';
   return 'extended';
 }
 
-// Builds styled, deduped edges for whichever people pass `includeId`.
-function buildEdgesForPeople(relationships: Relationship[], includeId: (id: string) => boolean): Edge[] {
+function getParentChildIds(rel: Relationship): { parentId: string; childId: string } | null {
+  if (PARENT_REL_TYPES.includes(rel.relationshipType)) return { parentId: rel.relatedPersonId, childId: rel.personId };
+  if (CHILD_REL_TYPES.includes(rel.relationshipType)) return { parentId: rel.personId, childId: rel.relatedPersonId };
+  return null;
+}
+
+// Builds styled, deduped edges for whichever people pass `includeId`. Parent/child
+// edges route as a shared "family bus": a trunk drops from the midpoint between a
+// couple (or a single parent) to a horizontal line at the child generation, so
+// siblings sharing parents read as one connector instead of criss-crossing lines.
+// Sibling-to-sibling edges are skipped entirely — that bus already implies it.
+function buildFamilyEdges(
+  relationships: Relationship[],
+  includeId: (id: string) => boolean,
+  getPos: (id: string) => { x: number; y: number } | undefined
+): Edge[] {
+  const spouseOf = new Map<string, string>();
+  for (const rel of relationships) {
+    if (SPOUSE_TYPES.includes(rel.relationshipType) && includeId(rel.personId) && includeId(rel.relatedPersonId)) {
+      spouseOf.set(rel.personId, rel.relatedPersonId);
+    }
+  }
+
+  function trunkXOf(parentId: string): number {
+    const pos = getPos(parentId);
+    if (!pos) return 0;
+    const spouseId = spouseOf.get(parentId);
+    const spousePos = spouseId ? getPos(spouseId) : undefined;
+    const cx = pos.x + NODE_WIDTH / 2;
+    return spousePos ? (cx + spousePos.x + NODE_WIDTH / 2) / 2 : cx;
+  }
+
   const edgeSet = new Set<string>();
   const edges: Edge[] = [];
 
   for (const rel of relationships) {
     if (!includeId(rel.personId) || !includeId(rel.relatedPersonId)) continue;
-    const sortedIds = [rel.personId, rel.relatedPersonId].sort().join('-');
     const group = getEdgeGroup(rel.relationshipType);
+    if (group === 'sibling') continue;
+
+    const sortedIds = [rel.personId, rel.relatedPersonId].sort().join('-');
     const key = `${sortedIds}-${group}`;
     if (edgeSet.has(key)) continue;
     edgeSet.add(key);
 
-    const isSpouse = SPOUSE_TYPES.includes(rel.relationshipType);
-    const isSibling = SIBLING_TYPES.includes(rel.relationshipType);
+    if (group === 'parent') {
+      const pc = getParentChildIds(rel);
+      const parentPos = pc && getPos(pc.parentId);
+      const childPos = pc && getPos(pc.childId);
+      if (!pc || !parentPos || !childPos) continue;
 
+      const trunkX = trunkXOf(pc.parentId);
+      const childCx = childPos.x + NODE_WIDTH / 2;
+      const parentBottomY = parentPos.y + NODE_HEIGHT;
+      const busY = (parentBottomY + childPos.y) / 2;
+
+      edges.push({
+        id: rel.id,
+        source: pc.parentId,
+        target: pc.childId,
+        type: 'familyEdge',
+        data: { trunkX, busY, childCx, parentBottomY, childTopY: childPos.y },
+        style: { stroke: '#c8bfb0', strokeWidth: 1.5 },
+      });
+      continue;
+    }
+
+    const isSpouse = group === 'spouse';
     edges.push({
       id: rel.id,
       source: rel.personId,
       target: rel.relatedPersonId,
-      type: 'smoothstep',
+      type: 'straight',
       style: {
-        stroke: isSpouse ? '#e8a87c' : isSibling ? '#94b4c1' : '#c8bfb0',
-        strokeWidth: isSpouse ? 2 : 1.5,
-        strokeDasharray: isSpouse ? '5 3' : undefined,
+        stroke: isSpouse ? '#e8a87c' : '#d4cdbf',
+        strokeWidth: isSpouse ? 2 : 1.25,
+        strokeDasharray: isSpouse ? '5 3' : '2 3',
       },
     });
   }
@@ -87,7 +143,7 @@ function buildTreeNodes(people: Person[], relationships: Relationship[]): Map<st
   return nodeMap;
 }
 
-function assignLevels(nodeMap: Map<string, TreeNode>): void {
+function assignLevels(nodeMap: Map<string, TreeNode>, relationships: Relationship[]): void {
   const roots = [...nodeMap.values()].filter(n => n.parents.length === 0);
   const visited = new Set<string>();
 
@@ -101,6 +157,26 @@ function assignLevels(nodeMap: Map<string, TreeNode>): void {
   for (const root of roots) setLevel(root, 0);
   for (const node of nodeMap.values()) {
     if (!visited.has(node.person.id)) node.level = 0;
+  }
+
+  // Someone with no recorded blood parents (e.g. married into the family)
+  // defaults to level 0 above — pull them to their spouse's level instead,
+  // since marriage carries no generational distance. A few passes handle
+  // chained in-law cases (e.g. that spouse's own sibling-in-law).
+  const spousePairs = relationships
+    .filter(r => SPOUSE_TYPES.includes(r.relationshipType))
+    .map(r => [r.personId, r.relatedPersonId] as const);
+
+  for (let pass = 0; pass < 3; pass++) {
+    let changed = false;
+    for (const [aId, bId] of spousePairs) {
+      const a = nodeMap.get(aId);
+      const b = nodeMap.get(bId);
+      if (!a || !b || a.level === b.level) continue;
+      if (a.parents.length === 0 && b.parents.length > 0) { a.level = b.level; changed = true; }
+      else if (b.parents.length === 0 && a.parents.length > 0) { b.level = a.level; changed = true; }
+    }
+    if (!changed) break;
   }
 }
 
@@ -163,7 +239,7 @@ export function buildFlowGraph(people: Person[], relationships: Relationship[]):
   if (people.length === 0) return { nodes: [], edges: [] };
 
   const nodeMap = buildTreeNodes(people, relationships);
-  assignLevels(nodeMap);
+  assignLevels(nodeMap, relationships);
   assignPositions(nodeMap, relationships);
 
   const nodes: Node[] = [...nodeMap.values()].map(tn => ({
@@ -174,7 +250,10 @@ export function buildFlowGraph(people: Person[], relationships: Relationship[]):
   }));
 
   const peopleIds = new Set(people.map(p => p.id));
-  const edges = buildEdgesForPeople(relationships, id => peopleIds.has(id));
+  const edges = buildFamilyEdges(relationships, id => peopleIds.has(id), id => {
+    const tn = nodeMap.get(id);
+    return tn ? { x: tn.x, y: tn.y } : undefined;
+  });
 
   return { nodes, edges };
 }
@@ -326,7 +405,8 @@ export function buildFocusedGraph(focusId: string, people: Person[], relationshi
     }));
 
   const includedIds = new Set(nodes.map(n => n.id));
-  const edges = buildEdgesForPeople(relationships, id => includedIds.has(id));
+  const nodePos = new Map(nodes.map(n => [n.id, n.position]));
+  const edges = buildFamilyEdges(relationships, id => includedIds.has(id), id => nodePos.get(id));
 
   return { nodes, edges };
 }

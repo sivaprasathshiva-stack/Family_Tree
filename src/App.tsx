@@ -13,6 +13,7 @@ import {
 import { buildFlowGraph, buildFocusedGraph } from './treeLayout';
 import { genderColors } from './theme';
 import PersonNode from './components/PersonNode';
+import FamilyEdge from './components/FamilyEdge';
 import Avatar from './components/Avatar';
 import PersonForm from './components/PersonForm';
 import PersonPanel from './components/PersonPanel';
@@ -25,6 +26,7 @@ import { getCurrentUser, logout as logoutUser, getFamilyName, updateFamilyName, 
 import { Search, Plus, Download, Upload, TreePine, Users, Loader2, Pencil, Maximize2 } from 'lucide-react';
 
 const nodeTypes = { personNode: PersonNode };
+const edgeTypes = { familyEdge: FamilyEdge };
 
 function FamilyTreeApp() {
   const [authUser, setAuthUser] = useState<AuthUser | null | undefined>(undefined);
@@ -369,8 +371,8 @@ function FamilyTreeApp() {
             nodes={nodes} edges={edges}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             onNodeClick={handleNodeClick}
-            onPaneClick={() => setSelectedPerson(null)}
             fitView fitViewOptions={{ padding: 0.2 }}
             minZoom={0.1} maxZoom={2.5}
           >
