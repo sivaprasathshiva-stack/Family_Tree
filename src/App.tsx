@@ -14,6 +14,7 @@ import { buildFlowGraph, buildFocusedGraph } from './treeLayout';
 import { genderColors } from './theme';
 import PersonNode from './components/PersonNode';
 import FamilyEdge from './components/FamilyEdge';
+import MoreNode from './components/MoreNode';
 import Avatar from './components/Avatar';
 import PersonForm from './components/PersonForm';
 import PersonPanel from './components/PersonPanel';
@@ -25,8 +26,9 @@ import UserMenu from './components/UserMenu';
 import { getCurrentUser, logout as logoutUser, getFamilyName, updateFamilyName, type AuthUser } from './auth';
 import { Search, Plus, Download, Upload, TreePine, Users, Loader2, Pencil, Maximize2 } from 'lucide-react';
 
-const nodeTypes = { personNode: PersonNode };
+const nodeTypes = { personNode: PersonNode, moreNode: MoreNode };
 const edgeTypes = { familyEdge: FamilyEdge };
+const DEPTH_OPTIONS = [2, 3, 4] as const;
 
 function FamilyTreeApp() {
   const [authUser, setAuthUser] = useState<AuthUser | null | undefined>(undefined);
@@ -47,6 +49,7 @@ function FamilyTreeApp() {
   const [searchResults, setSearchResults] = useState<Person[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [focusDepth, setFocusDepth] = useState<number>(3);
   const { fitView, setCenter } = useReactFlow();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -94,7 +97,7 @@ function FamilyTreeApp() {
   useEffect(() => {
     const focusId = selectedPerson?.id ?? null;
     const { nodes: n, edges: e } = focusId
-      ? buildFocusedGraph(focusId, data.people, data.relationships)
+      ? buildFocusedGraph(focusId, data.people, data.relationships, focusDepth)
       : buildFlowGraph(data.people, data.relationships);
     setNodes(n);
     setEdges(e);
@@ -112,7 +115,7 @@ function FamilyTreeApp() {
       }
     }, 80);
     return () => clearTimeout(timer);
-  }, [data, selectedPerson?.id]);
+  }, [data, selectedPerson?.id, focusDepth]);
 
   // Search
   useEffect(() => {
@@ -122,7 +125,10 @@ function FamilyTreeApp() {
   }, [searchQuery, data.people]);
 
   const handleNodeClick: NodeMouseHandler = useCallback((_evt, node) => {
-    const person = data.people.find(p => p.id === node.id);
+    // A "+N" chip shares its boundary person's id (prefixed) — clicking it
+    // re-centers on that person too, which is what reveals their hidden relatives.
+    const targetId = node.id.startsWith('more-') ? node.id.slice(5) : node.id;
+    const person = data.people.find(p => p.id === targetId);
     if (person) setSelectedPerson(person);
   }, [data.people]);
 
@@ -396,6 +402,31 @@ function FamilyTreeApp() {
           >
             <Maximize2 size={12} /> Fit to Screen
           </button>
+        )}
+
+        {selectedPerson && !anyModalOpen && (
+          <div className="absolute left-5 top-5 z-10 flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 bg-white px-2 py-1.5 shadow-md">
+            <span className="px-1 text-[11px] font-semibold text-slate-400">Depth</span>
+            {DEPTH_OPTIONS.map(d => (
+              <button
+                key={d}
+                onClick={() => setFocusDepth(d)}
+                className={`rounded-md px-2 py-1 text-xs font-bold transition-colors duration-150 ${
+                  focusDepth === d ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+            <button
+              onClick={() => setFocusDepth(Infinity)}
+              className={`rounded-md px-2 py-1 text-xs font-bold transition-colors duration-150 ${
+                !Number.isFinite(focusDepth) ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              All
+            </button>
+          </div>
         )}
       </div>
 

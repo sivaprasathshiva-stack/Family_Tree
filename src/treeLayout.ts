@@ -1,10 +1,15 @@
 import type { Person, Relationship, RelationshipType } from './types';
 import type { Node, Edge } from '@xyflow/react';
+import { assignBranchColors } from './branchColors';
 
 const NODE_WIDTH = 180;
 const NODE_HEIGHT = 90;
 const H_GAP = 60;
 const V_GAP = 100;
+// Extra horizontal breathing room inserted between two family clusters that
+// only touch through marriage, not blood, so unrelated lineages read as
+// visually distinct groups instead of one undifferentiated row.
+const BRANCH_GAP = 56;
 
 const SPOUSE_TYPES: RelationshipType[] = ['husband', 'wife', 'spouse'];
 const SIBLING_TYPES: RelationshipType[] = ['brother', 'sister', 'sibling'];
@@ -180,7 +185,7 @@ function assignLevels(nodeMap: Map<string, TreeNode>, relationships: Relationshi
   }
 }
 
-function assignPositions(nodeMap: Map<string, TreeNode>, relationships: Relationship[]): void {
+function assignPositions(nodeMap: Map<string, TreeNode>, relationships: Relationship[], rootByPerson: Map<string, string>): void {
   const levels = new Map<number, TreeNode[]>();
   for (const node of nodeMap.values()) {
     const lvl = node.level;
@@ -213,10 +218,18 @@ function assignPositions(nodeMap: Map<string, TreeNode>, relationships: Relation
       }
     }
     let xOffset = 0;
+    let prevNode: TreeNode | null = null;
     for (const node of ordered) {
+      const isSpouseOfPrev = !!prevNode && (spouseOf.get(prevNode.person.id) === node.person.id || spouseOf.get(node.person.id) === prevNode.person.id);
+      if (prevNode && !isSpouseOfPrev) {
+        const prevRoot = rootByPerson.get(prevNode.person.id) ?? prevNode.person.id;
+        const root = rootByPerson.get(node.person.id) ?? node.person.id;
+        if (root !== prevRoot) xOffset += BRANCH_GAP;
+      }
       node.x = xOffset;
       node.y = lvl * (NODE_HEIGHT + V_GAP);
       xOffset += NODE_WIDTH + H_GAP;
+      prevNode = node;
     }
   }
 
@@ -238,15 +251,16 @@ function assignPositions(nodeMap: Map<string, TreeNode>, relationships: Relation
 export function buildFlowGraph(people: Person[], relationships: Relationship[]): { nodes: Node[]; edges: Edge[] } {
   if (people.length === 0) return { nodes: [], edges: [] };
 
+  const { colorByPerson, rootByPerson } = assignBranchColors(people, relationships);
   const nodeMap = buildTreeNodes(people, relationships);
   assignLevels(nodeMap, relationships);
-  assignPositions(nodeMap, relationships);
+  assignPositions(nodeMap, relationships, rootByPerson);
 
   const nodes: Node[] = [...nodeMap.values()].map(tn => ({
     id: tn.person.id,
     type: 'personNode',
     position: { x: tn.x, y: tn.y },
-    data: { person: tn.person },
+    data: { person: tn.person, branchColor: colorByPerson.get(tn.person.id) },
   }));
 
   const peopleIds = new Set(people.map(p => p.id));
@@ -291,27 +305,32 @@ function buildLevelAdjacency(relationships: Relationship[]): Map<string, { id: s
 
 // BFS out from the focus person; only relatives reachable this way appear
 // in the focused view — everyone else is left out rather than just dimmed.
-function assignFocusLevels(focusId: string, adjacency: Map<string, { id: string; delta: number }[]>): Map<string, number> {
+// Also tracks hop count (edges traversed, independent of generation) so the
+// view can be capped to "N relatives away" regardless of direction.
+function assignFocusLevels(focusId: string, adjacency: Map<string, { id: string; delta: number }[]>): { levels: Map<string, number>; hops: Map<string, number> } {
   const levels = new Map<string, number>([[focusId, 0]]);
+  const hops = new Map<string, number>([[focusId, 0]]);
   const queue: string[] = [focusId];
 
   while (queue.length) {
     const current = queue.shift()!;
     const currentLevel = levels.get(current)!;
+    const currentHops = hops.get(current)!;
     for (const { id, delta } of adjacency.get(current) ?? []) {
       if (levels.has(id)) continue;
       levels.set(id, currentLevel + delta);
+      hops.set(id, currentHops + 1);
       queue.push(id);
     }
   }
 
-  return levels;
+  return { levels, hops };
 }
 
 // Places each level's nodes left-to-right using a barycenter heuristic:
 // a node's x is the average x of its already-placed neighbors one level
 // closer to the focus, keeping the tree readable instead of crossing over.
-function assignFocusPositions(focusId: string, levels: Map<string, number>, relationships: Relationship[]): Map<string, number> {
+function assignFocusPositions(focusId: string, levels: Map<string, number>, relationships: Relationship[], rootByPerson: Map<string, string>): Map<string, number> {
   const byLevel = new Map<number, string[]>();
   for (const [id, lvl] of levels) {
     if (!byLevel.has(lvl)) byLevel.set(lvl, []);
@@ -374,7 +393,19 @@ function assignFocusPositions(focusId: string, levels: Map<string, number>, rela
     }
 
     const tempX = new Map<string, number>();
-    ordered.forEach((id, i) => tempX.set(id, i * (NODE_WIDTH + H_GAP)));
+    let xOffset = 0;
+    let prevId: string | null = null;
+    for (const id of ordered) {
+      const isSpouseOfPrev = !!prevId && (spouseOf.get(prevId) === id || spouseOf.get(id) === prevId);
+      if (prevId && !isSpouseOfPrev) {
+        const prevRoot = rootByPerson.get(prevId) ?? prevId;
+        const root = rootByPerson.get(id) ?? id;
+        if (root !== prevRoot) xOffset += BRANCH_GAP;
+      }
+      tempX.set(id, xOffset);
+      xOffset += NODE_WIDTH + H_GAP;
+      prevId = id;
+    }
 
     const shift = lvl === 0
       ? -tempX.get(focusId)!
@@ -387,24 +418,60 @@ function assignFocusPositions(focusId: string, levels: Map<string, number>, rela
   return x;
 }
 
-export function buildFocusedGraph(focusId: string, people: Person[], relationships: Relationship[]): { nodes: Node[]; edges: Edge[] } {
+export function buildFocusedGraph(
+  focusId: string,
+  people: Person[],
+  relationships: Relationship[],
+  maxDepth: number = Infinity
+): { nodes: Node[]; edges: Edge[] } {
   const peopleById = new Map(people.map(p => [p.id, p]));
   if (!peopleById.has(focusId)) return { nodes: [], edges: [] };
 
+  const { colorByPerson, rootByPerson } = assignBranchColors(people, relationships);
   const adjacency = buildLevelAdjacency(relationships);
-  const levels = assignFocusLevels(focusId, adjacency);
-  const xPositions = assignFocusPositions(focusId, levels, relationships);
+  const { levels, hops } = assignFocusLevels(focusId, adjacency);
 
-  const nodes: Node[] = [...levels.entries()]
-    .filter(([id]) => peopleById.has(id))
-    .map(([id, lvl]) => ({
-      id,
-      type: 'personNode',
-      position: { x: xPositions.get(id) ?? 0, y: lvl * (NODE_HEIGHT + V_GAP) },
-      data: { person: peopleById.get(id)! },
-    }));
+  // Beyond maxDepth, people are left out of the layout entirely — but a
+  // "+N" chip on the boundary person hints that more relatives are one
+  // click away, instead of silently truncating the tree.
+  const includedIds = new Set([...levels.keys()].filter(id => peopleById.has(id) && (hops.get(id) ?? 0) <= maxDepth));
+  const includedLevels = new Map([...levels].filter(([id]) => includedIds.has(id)));
 
-  const includedIds = new Set(nodes.map(n => n.id));
+  const xPositions = assignFocusPositions(focusId, includedLevels, relationships, rootByPerson);
+
+  const nodes: Node[] = [...includedLevels.entries()].map(([id, lvl]) => ({
+    id,
+    type: 'personNode',
+    position: { x: xPositions.get(id) ?? 0, y: lvl * (NODE_HEIGHT + V_GAP) },
+    data: { person: peopleById.get(id)!, branchColor: colorByPerson.get(id) },
+  }));
+
+  if (Number.isFinite(maxDepth)) {
+    const hiddenCount = new Map<string, number>();
+    for (const [id, neighbors] of adjacency) {
+      if (!includedIds.has(id)) continue;
+      for (const { id: neighborId } of neighbors) {
+        if (levels.has(neighborId) && !includedIds.has(neighborId)) {
+          hiddenCount.set(id, (hiddenCount.get(id) ?? 0) + 1);
+        }
+      }
+    }
+    for (const [boundaryId, count] of hiddenCount) {
+      const pos = xPositions.get(boundaryId);
+      const lvl = includedLevels.get(boundaryId);
+      if (pos === undefined || lvl === undefined) continue;
+      nodes.push({
+        id: `more-${boundaryId}`,
+        type: 'moreNode',
+        position: { x: pos + NODE_WIDTH - 34, y: lvl * (NODE_HEIGHT + V_GAP) + NODE_HEIGHT - 16 },
+        data: { count },
+        draggable: false,
+        selectable: false,
+        zIndex: 10,
+      });
+    }
+  }
+
   const nodePos = new Map(nodes.map(n => [n.id, n.position]));
   const edges = buildFamilyEdges(relationships, id => includedIds.has(id), id => nodePos.get(id));
 

@@ -6,10 +6,11 @@ import { genderClasses } from '../theme';
 
 interface PersonNodeData {
   person: Person;
+  branchColor?: string;
 }
 
 function PersonNode({ data, selected }: NodeProps) {
-  const { person } = data as unknown as PersonNodeData;
+  const { person, branchColor } = data as unknown as PersonNodeData;
   const c = genderClasses(person.gender);
   const birthYear = person.dateOfBirth ? new Date(person.dateOfBirth).getFullYear() : null;
   const deathYear = person.dateOfDeath ? new Date(person.dateOfDeath).getFullYear() : null;
@@ -25,6 +26,14 @@ function PersonNode({ data, selected }: NodeProps) {
         c.bg,
       ].join(' ')}
     >
+      {branchColor && (
+        <div
+          className="absolute -left-1.5 -top-1.5 h-3 w-3 rounded-full border-2 border-white shadow-sm"
+          style={{ background: branchColor }}
+          title="Family branch"
+        />
+      )}
+
       <Handle type="target" position={Position.Top} className="!opacity-0 !h-2 !w-2" />
       <Handle type="source" position={Position.Bottom} className="!opacity-0 !h-2 !w-2" />
       <Handle type="target" position={Position.Left} className="!opacity-0 !h-2 !w-2" />
