@@ -20,7 +20,7 @@ export default function ClaimProfileModal({ people, onClaim, onCreateNew }: Clai
 
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-      <div className="animate-scale-in w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl">
+      <div className="animate-scale-in scrollbar-thin max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-7">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 shadow-lg shadow-indigo-200">
           <TreePine size={26} className="text-white" />
         </div>

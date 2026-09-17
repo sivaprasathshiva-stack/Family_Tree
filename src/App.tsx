@@ -25,7 +25,7 @@ import LoginScreen from './components/LoginScreen';
 import UserMenu from './components/UserMenu';
 import ClaimProfileModal from './components/ClaimProfileModal';
 import { getCurrentUser, logout as logoutUser, getFamilyName, updateFamilyName, linkPerson, type AuthUser } from './auth';
-import { Search, Plus, Download, Upload, TreePine, Users, Loader2, Pencil, Maximize2, Home, ChevronRight, Network } from 'lucide-react';
+import { Search, Plus, Download, Upload, TreePine, Users, Loader2, Pencil, Maximize2, Home, ChevronRight, Network, MoreVertical } from 'lucide-react';
 
 const nodeTypes = { personNode: PersonNode, moreNode: MoreNode };
 const edgeTypes = { familyEdge: FamilyEdge };
@@ -50,11 +50,13 @@ function FamilyTreeApp() {
   const [searchResults, setSearchResults] = useState<Person[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [focusDepth, setFocusDepth] = useState<number>(3);
   const [trail, setTrail] = useState<{ id: string; name: string }[]>([]);
   const [showClaimProfile, setShowClaimProfile] = useState(false);
   const [claimAfterAdd, setClaimAfterAdd] = useState(false);
   const [showFullTree, setShowFullTree] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(true);
   const { fitView, setCenter } = useReactFlow();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -87,6 +89,7 @@ function FamilyTreeApp() {
   const focusOn = useCallback((person: Person, opts?: { resetTrail?: boolean }) => {
     setSelectedPerson(person);
     setShowFullTree(false);
+    setPanelOpen(true);
     setTrail(prev => {
       if (opts?.resetTrail) return [{ id: person.id, name: person.name }];
       const idx = prev.findIndex(t => t.id === person.id);
@@ -391,23 +394,52 @@ function FamilyTreeApp() {
               <Home size={14} /><span className="hidden lg:inline">Me</span>
             </button>
           )}
-          <button
-            onClick={() => setShowFullTree(v => !v)}
-            title={showFullTree ? 'Back to my family circle' : 'View the entire family tree'}
-            className={`flex items-center gap-1.5 rounded-lg border-[1.5px] px-2 py-1.5 text-[13px] font-semibold transition-all duration-150 active:scale-95 sm:px-3 ${
-              showFullTree ? 'border-indigo-300 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
-            }`}
-          >
-            <Network size={14} /><span className="hidden lg:inline">Full Tree</span>
-          </button>
 
-          <button onClick={() => exportToFile(data)} title="Export" className="flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 px-2 py-1.5 text-[13px] font-semibold text-slate-500 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 active:scale-95 sm:px-3">
-            <Download size={14} /><span className="hidden lg:inline">Export</span>
-          </button>
-          <button onClick={() => fileInputRef.current?.click()} title="Import" className="flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 px-2 py-1.5 text-[13px] font-semibold text-slate-500 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 active:scale-95 sm:px-3">
-            <Upload size={14} /><span className="hidden lg:inline">Import</span>
-          </button>
+          {/* Secondary actions: full-size buttons on larger screens, collapsed into a menu on mobile */}
+          <div className="hidden items-center gap-1.5 sm:flex sm:gap-2">
+            <button
+              onClick={() => setShowFullTree(v => !v)}
+              title={showFullTree ? 'Back to my family circle' : 'View the entire family tree'}
+              className={`flex items-center gap-1.5 rounded-lg border-[1.5px] px-2 py-1.5 text-[13px] font-semibold transition-all duration-150 active:scale-95 sm:px-3 ${
+                showFullTree ? 'border-indigo-300 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+              }`}
+            >
+              <Network size={14} /><span className="hidden lg:inline">Full Tree</span>
+            </button>
+            <button onClick={() => exportToFile(data)} title="Export" className="flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 px-2 py-1.5 text-[13px] font-semibold text-slate-500 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 active:scale-95 sm:px-3">
+              <Download size={14} /><span className="hidden lg:inline">Export</span>
+            </button>
+            <button onClick={() => fileInputRef.current?.click()} title="Import" className="flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 px-2 py-1.5 text-[13px] font-semibold text-slate-500 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 active:scale-95 sm:px-3">
+              <Upload size={14} /><span className="hidden lg:inline">Import</span>
+            </button>
+          </div>
           <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
+
+          {/* Mobile overflow menu for the same secondary actions */}
+          <div className="relative sm:hidden">
+            <button onClick={() => setShowMoreMenu(v => !v)} title="More" className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100">
+              <MoreVertical size={16} />
+            </button>
+            {showMoreMenu && (
+              <>
+                <div className="fixed inset-0 z-[1050]" onClick={() => setShowMoreMenu(false)} />
+                <div className="animate-scale-in absolute right-0 top-11 z-[1100] min-w-[180px] origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                  <button
+                    onClick={() => { setShowFullTree(v => !v); setShowMoreMenu(false); }}
+                    className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-medium transition-colors duration-150 hover:bg-slate-50 ${showFullTree ? 'text-indigo-600' : 'text-slate-600'}`}
+                  >
+                    <Network size={14} /> {showFullTree ? 'Back to My Circle' : 'View Full Tree'}
+                  </button>
+                  <button onClick={() => { exportToFile(data); setShowMoreMenu(false); }} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-50">
+                    <Download size={14} /> Export
+                  </button>
+                  <button onClick={() => { fileInputRef.current?.click(); setShowMoreMenu(false); }} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-50">
+                    <Upload size={14} /> Import
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
           <button onClick={() => setShowAddPerson(true)} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-[13px] font-bold text-white shadow-sm transition-all duration-150 hover:bg-indigo-700 hover:shadow-md active:scale-95 sm:px-4">
             <Plus size={16} /><span className="hidden sm:inline">Add Person</span>
@@ -504,7 +536,7 @@ function FamilyTreeApp() {
         )}
 
         {selectedPerson && !showFullTree && !anyModalOpen && trail.length > 0 && (
-          <div className="absolute left-5 top-5 z-10 flex max-w-[calc(100%-40px)] items-center gap-1 overflow-x-auto rounded-lg border-[1.5px] border-slate-200 bg-white px-2 py-1.5 shadow-md">
+          <div className="absolute left-3 right-3 top-3 z-10 flex items-center gap-1 overflow-x-auto rounded-lg border-[1.5px] border-slate-200 bg-white px-2 py-1.5 shadow-md sm:left-5 sm:right-5 sm:top-5">
             {trail.map((t, i) => (
               <span key={t.id} className="flex shrink-0 items-center gap-1">
                 {i > 0 && <ChevronRight size={12} className="shrink-0 text-slate-300" />}
@@ -525,7 +557,7 @@ function FamilyTreeApp() {
         )}
 
         {selectedPerson && !showFullTree && !anyModalOpen && (
-          <div className="absolute right-5 top-5 z-10 flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 bg-white px-2 py-1.5 shadow-md">
+          <div className={`absolute left-3 z-10 flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 bg-white px-2 py-1.5 shadow-md sm:left-5 ${trail.length > 0 ? 'top-14 sm:top-16' : 'top-3 sm:top-5'}`}>
             <span className="px-1 text-[11px] font-semibold text-slate-400">Depth</span>
             {DEPTH_OPTIONS.map(d => (
               <button
@@ -551,7 +583,7 @@ function FamilyTreeApp() {
       </div>
 
       {/* Side panel */}
-      {selectedPerson && !anyModalOpen && (
+      {selectedPerson && panelOpen && !anyModalOpen && (
         <PersonPanel
           person={selectedPerson} people={data.people} relationships={data.relationships}
           onEdit={() => setShowEditPerson(true)}
@@ -560,7 +592,7 @@ function FamilyTreeApp() {
           onQuickAdd={() => setShowQuickAdd(true)}
           onDeleteRelationship={handleDeleteRelationship}
           onSelectPerson={id => { const p = data.people.find(x => x.id === id); if (p) focusOn(p); }}
-          onClose={() => (authUser?.linkedPersonId ? goHome() : setSelectedPerson(null))}
+          onClose={() => setPanelOpen(false)}
           myPersonId={authUser?.linkedPersonId ?? null}
         />
       )}
