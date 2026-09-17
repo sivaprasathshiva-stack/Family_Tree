@@ -37,11 +37,13 @@ export async function getSessionUser(req) {
   const token = parseCookies(req)[SESSION_COOKIE];
   if (!token) return null;
   const { rows } = await sql`
-    SELECT u.id, u.email, u.name, u.picture
+    SELECT u.id, u.email, u.name, u.picture, u.linked_person_id
     FROM sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token = ${token} AND s.expires_at > now()
   `;
-  return rows[0] || null;
+  if (!rows[0]) return null;
+  const row = rows[0];
+  return { id: row.id, email: row.email, name: row.name, picture: row.picture, linkedPersonId: row.linked_person_id || null };
 }
 
 export async function requireAuth(req, res) {

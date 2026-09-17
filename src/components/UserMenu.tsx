@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, UserCog } from 'lucide-react';
 import type { AuthUser } from '../auth';
 
 interface UserMenuProps {
   user: AuthUser;
   onLogout: () => void;
+  onChangeProfile?: () => void;
 }
 
-export default function UserMenu({ user, onLogout }: UserMenuProps) {
+export default function UserMenu({ user, onLogout, onChangeProfile }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -39,6 +40,14 @@ export default function UserMenu({ user, onLogout }: UserMenuProps) {
             <div className="truncate text-[13px] font-semibold text-slate-900">{user.name || 'Signed in'}</div>
             <div className="truncate text-[12px] text-slate-400">{user.email}</div>
           </div>
+          {onChangeProfile && (
+            <button
+              onClick={() => { setOpen(false); onChangeProfile(); }}
+              className="flex w-full items-center gap-2 border-b border-slate-100 px-4 py-2.5 text-left text-[13px] font-medium text-slate-600 transition-colors duration-150 hover:bg-slate-50"
+            >
+              <UserCog size={14} /> Change my profile
+            </button>
+          )}
           <button
             onClick={() => { setOpen(false); onLogout(); }}
             className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-[13px] font-medium text-rose-600 transition-colors duration-150 hover:bg-rose-50"

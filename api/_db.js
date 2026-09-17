@@ -39,10 +39,13 @@ export async function initDb() {
       email TEXT NOT NULL,
       name TEXT,
       picture TEXT,
+      linked_person_id TEXT REFERENCES people(id) ON DELETE SET NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       last_login_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `;
+  // Existing deployments predate linked_person_id — add it if missing.
+  await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS linked_person_id TEXT REFERENCES people(id) ON DELETE SET NULL;`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS sessions (

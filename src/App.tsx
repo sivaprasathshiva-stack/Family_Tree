@@ -23,8 +23,9 @@ import ConfirmDialog from './components/ConfirmDialog';
 import QuickAddModal from './components/QuickAddModal';
 import LoginScreen from './components/LoginScreen';
 import UserMenu from './components/UserMenu';
-import { getCurrentUser, logout as logoutUser, getFamilyName, updateFamilyName, type AuthUser } from './auth';
-import { Search, Plus, Download, Upload, TreePine, Users, Loader2, Pencil, Maximize2 } from 'lucide-react';
+import ClaimProfileModal from './components/ClaimProfileModal';
+import { getCurrentUser, logout as logoutUser, getFamilyName, updateFamilyName, linkPerson, type AuthUser } from './auth';
+import { Search, Plus, Download, Upload, TreePine, Users, Loader2, Pencil, Maximize2, Home, ChevronRight, Network } from 'lucide-react';
 
 const nodeTypes = { personNode: PersonNode, moreNode: MoreNode };
 const edgeTypes = { familyEdge: FamilyEdge };
@@ -50,6 +51,10 @@ function FamilyTreeApp() {
   const [showSearch, setShowSearch] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [focusDepth, setFocusDepth] = useState<number>(3);
+  const [trail, setTrail] = useState<{ id: string; name: string }[]>([]);
+  const [showClaimProfile, setShowClaimProfile] = useState(false);
+  const [claimAfterAdd, setClaimAfterAdd] = useState(false);
+  const [showFullTree, setShowFullTree] = useState(false);
   const { fitView, setCenter } = useReactFlow();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -71,6 +76,62 @@ function FamilyTreeApp() {
     setAuthUser(null);
     setData({ people: [], relationships: [] });
     setSelectedPerson(null);
+    setTrail([]);
+  }
+
+  // Re-centers the graph on `person` and updates the navigation trail: if
+  // `person` is already in the trail (e.g. clicking a breadcrumb, or a node
+  // you've visited before) the trail truncates back to that point instead of
+  // growing forever; otherwise it's appended as a new hop. `resetTrail`
+  // starts a fresh trail rooted at `person` — used when jumping Home.
+  const focusOn = useCallback((person: Person, opts?: { resetTrail?: boolean }) => {
+    setSelectedPerson(person);
+    setShowFullTree(false);
+    setTrail(prev => {
+      if (opts?.resetTrail) return [{ id: person.id, name: person.name }];
+      const idx = prev.findIndex(t => t.id === person.id);
+      if (idx !== -1) return prev.slice(0, idx + 1);
+      return [...prev, { id: person.id, name: person.name }];
+    });
+  }, []);
+
+  function goHome() {
+    setShowFullTree(false);
+    const me = data.people.find(p => p.id === authUser?.linkedPersonId);
+    if (me) focusOn(me, { resetTrail: true });
+  }
+
+  // Every login must resolve to a specific node — the default view is always
+  // "my family circle", never the whole tree. Once linked, land on that
+  // person automatically; if not yet linked (and the tree isn't empty),
+  // prompt them to claim their profile before showing anything.
+  useEffect(() => {
+    if (loading || selectedPerson || showFullTree) return;
+    if (authUser?.linkedPersonId) {
+      const me = data.people.find(p => p.id === authUser.linkedPersonId);
+      if (me) { focusOn(me, { resetTrail: true }); return; }
+    }
+    if (authUser && !authUser.linkedPersonId && data.people.length > 0) {
+      setShowClaimProfile(true);
+    }
+  }, [authUser, data.people, loading, selectedPerson, showFullTree, focusOn]);
+
+  async function handleClaim(personId: string) {
+    try {
+      await linkPerson(personId);
+      setAuthUser(u => (u ? { ...u, linkedPersonId: personId } : u));
+      setShowClaimProfile(false);
+      const person = data.people.find(p => p.id === personId);
+      if (person) focusOn(person, { resetTrail: true });
+    } catch {
+      alert('Could not link your profile. Please try again.');
+    }
+  }
+
+  function handleClaimCreateNew() {
+    setShowClaimProfile(false);
+    setClaimAfterAdd(true);
+    setShowAddPerson(true);
   }
 
   function startEditFamilyName() {
@@ -95,7 +156,7 @@ function FamilyTreeApp() {
   // clearing the selection returns to the fixed default tree.
   const prevFocusId = useRef<string | null>(null);
   useEffect(() => {
-    const focusId = selectedPerson?.id ?? null;
+    const focusId = showFullTree ? null : selectedPerson?.id ?? null;
     const { nodes: n, edges: e } = focusId
       ? buildFocusedGraph(focusId, data.people, data.relationships, focusDepth)
       : buildFlowGraph(data.people, data.relationships);
@@ -115,7 +176,7 @@ function FamilyTreeApp() {
       }
     }, 80);
     return () => clearTimeout(timer);
-  }, [data, selectedPerson?.id, focusDepth]);
+  }, [data, selectedPerson?.id, focusDepth, showFullTree]);
 
   // Search
   useEffect(() => {
@@ -129,8 +190,8 @@ function FamilyTreeApp() {
     // re-centers on that person too, which is what reveals their hidden relatives.
     const targetId = node.id.startsWith('more-') ? node.id.slice(5) : node.id;
     const person = data.people.find(p => p.id === targetId);
-    if (person) setSelectedPerson(person);
-  }, [data.people]);
+    if (person) focusOn(person);
+  }, [data.people, focusOn]);
 
   // Persist a manual drag so it survives the next layout rebuild. Only in the
   // default (unfocused) view — the focused view's coordinates are relative to
@@ -155,7 +216,12 @@ function FamilyTreeApp() {
       const { data: newData, person } = await createPerson(data, personData);
       setData(newData);
       setShowAddPerson(false);
-      setTimeout(() => centerOnPerson(person.id), 300);
+      if (claimAfterAdd) {
+        setClaimAfterAdd(false);
+        await handleClaim(person.id);
+      } else {
+        setTimeout(() => centerOnPerson(person.id), 300);
+      }
     } catch {
       alert('Could not add person. Please try again.');
     }
@@ -258,7 +324,7 @@ function FamilyTreeApp() {
     return <LoginScreen />;
   }
 
-  const anyModalOpen = showAddPerson || showEditPerson || showAddRelationship || showQuickAdd || !!confirmDelete;
+  const anyModalOpen = showAddPerson || showEditPerson || showAddRelationship || showQuickAdd || !!confirmDelete || showClaimProfile;
 
   return (
     <div className="flex h-screen w-screen flex-col bg-slate-50">
@@ -299,7 +365,7 @@ function FamilyTreeApp() {
               {searchResults.slice(0, 6).map(p => (
                 <button
                   key={p.id}
-                  onClick={() => { setSelectedPerson(p); setSearchQuery(''); }}
+                  onClick={() => { focusOn(p); setSearchQuery(''); }}
                   className="flex w-full items-center gap-2.5 border-b border-slate-100 px-3.5 py-2 text-left transition-colors last:border-b-0 hover:bg-slate-50"
                 >
                   <Avatar photo={p.photo} name={p.name} gender={p.gender} size={28} />
@@ -320,6 +386,21 @@ function FamilyTreeApp() {
             <Users size={14} /> {data.people.length} {data.people.length === 1 ? 'person' : 'people'}
           </span>
 
+          {authUser.linkedPersonId && (
+            <button onClick={goHome} title="Back to my family circle" className="flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 px-2 py-1.5 text-[13px] font-semibold text-slate-500 transition-all duration-150 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 active:scale-95 sm:px-3">
+              <Home size={14} /><span className="hidden lg:inline">Me</span>
+            </button>
+          )}
+          <button
+            onClick={() => setShowFullTree(v => !v)}
+            title={showFullTree ? 'Back to my family circle' : 'View the entire family tree'}
+            className={`flex items-center gap-1.5 rounded-lg border-[1.5px] px-2 py-1.5 text-[13px] font-semibold transition-all duration-150 active:scale-95 sm:px-3 ${
+              showFullTree ? 'border-indigo-300 bg-indigo-50 text-indigo-600' : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            <Network size={14} /><span className="hidden lg:inline">Full Tree</span>
+          </button>
+
           <button onClick={() => exportToFile(data)} title="Export" className="flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 px-2 py-1.5 text-[13px] font-semibold text-slate-500 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 active:scale-95 sm:px-3">
             <Download size={14} /><span className="hidden lg:inline">Export</span>
           </button>
@@ -332,7 +413,7 @@ function FamilyTreeApp() {
             <Plus size={16} /><span className="hidden sm:inline">Add Person</span>
           </button>
 
-          <UserMenu user={authUser} onLogout={handleLogout} />
+          <UserMenu user={authUser} onLogout={handleLogout} onChangeProfile={() => setShowClaimProfile(true)} />
         </div>
       </header>
 
@@ -354,7 +435,7 @@ function FamilyTreeApp() {
               {searchResults.slice(0, 8).map(p => (
                 <button
                   key={p.id}
-                  onClick={() => { setSelectedPerson(p); setSearchQuery(''); setMobileSearchOpen(false); }}
+                  onClick={() => { focusOn(p); setSearchQuery(''); setMobileSearchOpen(false); }}
                   className="flex w-full items-center gap-2.5 border-b border-slate-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-slate-50"
                 >
                   <Avatar photo={p.photo} name={p.name} gender={p.gender} size={28} />
@@ -379,10 +460,15 @@ function FamilyTreeApp() {
               <TreePine size={36} className="text-indigo-400" />
             </div>
             <h2 className="m-0 text-2xl font-extrabold text-slate-900">Build Your Family Tree</h2>
-            <p className="m-0 max-w-xs text-[15px] text-slate-400">Start by adding yourself or the oldest family member you know.</p>
-            <button onClick={() => setShowAddPerson(true)} className="mt-2 flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 text-[15px] font-bold text-white shadow-md transition-all duration-150 hover:bg-indigo-700 hover:shadow-lg active:scale-95">
-              <Plus size={18} /> Add First Person
-            </button>
+            <p className="m-0 max-w-xs text-[15px] text-slate-400">Start with yourself — everyone else's place in the tree is worked out from there.</p>
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2.5">
+              <button onClick={() => { setClaimAfterAdd(true); setShowAddPerson(true); }} className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 text-[15px] font-bold text-white shadow-md transition-all duration-150 hover:bg-indigo-700 hover:shadow-lg active:scale-95">
+                <Plus size={18} /> Add Myself
+              </button>
+              <button onClick={() => setShowAddPerson(true)} className="flex items-center gap-2 rounded-2xl border-[1.5px] border-slate-200 bg-white px-5 py-3 text-[14px] font-semibold text-slate-600 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 active:scale-95">
+                Add Someone Else
+              </button>
+            </div>
           </div>
         ) : (
           <ReactFlow
@@ -417,8 +503,29 @@ function FamilyTreeApp() {
           </button>
         )}
 
-        {selectedPerson && !anyModalOpen && (
-          <div className="absolute left-5 top-5 z-10 flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 bg-white px-2 py-1.5 shadow-md">
+        {selectedPerson && !showFullTree && !anyModalOpen && trail.length > 0 && (
+          <div className="absolute left-5 top-5 z-10 flex max-w-[calc(100%-40px)] items-center gap-1 overflow-x-auto rounded-lg border-[1.5px] border-slate-200 bg-white px-2 py-1.5 shadow-md">
+            {trail.map((t, i) => (
+              <span key={t.id} className="flex shrink-0 items-center gap-1">
+                {i > 0 && <ChevronRight size={12} className="shrink-0 text-slate-300" />}
+                <button
+                  onClick={() => {
+                    const p = data.people.find(x => x.id === t.id);
+                    if (p) { setSelectedPerson(p); setTrail(trail.slice(0, i + 1)); }
+                  }}
+                  className={`whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold transition-colors duration-150 ${
+                    i === trail.length - 1 ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-100'
+                  }`}
+                >
+                  {t.id === authUser.linkedPersonId ? 'Me' : t.name}
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {selectedPerson && !showFullTree && !anyModalOpen && (
+          <div className="absolute right-5 top-5 z-10 flex items-center gap-1.5 rounded-lg border-[1.5px] border-slate-200 bg-white px-2 py-1.5 shadow-md">
             <span className="px-1 text-[11px] font-semibold text-slate-400">Depth</span>
             {DEPTH_OPTIONS.map(d => (
               <button
@@ -452,12 +559,13 @@ function FamilyTreeApp() {
           onAddRelationship={() => setShowAddRelationship(true)}
           onQuickAdd={() => setShowQuickAdd(true)}
           onDeleteRelationship={handleDeleteRelationship}
-          onSelectPerson={id => { const p = data.people.find(x => x.id === id); if (p) setSelectedPerson(p); }}
-          onClose={() => setSelectedPerson(null)}
+          onSelectPerson={id => { const p = data.people.find(x => x.id === id); if (p) focusOn(p); }}
+          onClose={() => (authUser?.linkedPersonId ? goHome() : setSelectedPerson(null))}
+          myPersonId={authUser?.linkedPersonId ?? null}
         />
       )}
 
-      {showAddPerson && <PersonForm title="Add Person" onSave={handleAddPerson} onCancel={() => setShowAddPerson(false)} />}
+      {showAddPerson && <PersonForm title={claimAfterAdd ? 'Add Yourself' : 'Add Person'} onSave={handleAddPerson} onCancel={() => { setShowAddPerson(false); setClaimAfterAdd(false); }} />}
       {showEditPerson && selectedPerson && <PersonForm title="Edit Person" person={selectedPerson} onSave={handleEditPerson} onCancel={() => setShowEditPerson(false)} />}
       {showAddRelationship && selectedPerson && <RelationshipForm currentPerson={selectedPerson} people={data.people} onSave={handleAddRelationship} onCancel={() => setShowAddRelationship(false)} />}
       {showQuickAdd && selectedPerson && <QuickAddModal currentPerson={selectedPerson} people={data.people} onCreateAndRelate={handleQuickAddCreate} onRelateExisting={handleQuickAddExisting} onCancel={() => setShowQuickAdd(false)} />}
@@ -469,6 +577,9 @@ function FamilyTreeApp() {
           confirmLabel="Delete" confirmDanger
           onConfirm={handleDeletePerson} onCancel={() => setConfirmDelete(null)}
         />
+      )}
+      {showClaimProfile && (
+        <ClaimProfileModal people={data.people} onClaim={handleClaim} onCreateNew={handleClaimCreateNew} />
       )}
     </div>
   );

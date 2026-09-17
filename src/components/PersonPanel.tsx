@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import type { Person, Relationship } from '../types';
 import { getImmediateFamily, type FamilyEntry } from '../relationsFocus';
+import { findRelationshipPath, describeRelationshipPath } from '../relationshipPath';
 import { genderClasses } from '../theme';
-import { X, Edit2, Trash2, Plus, Phone, Mail } from 'lucide-react';
+import { X, Edit2, Trash2, Plus, Phone, Mail, Users2 } from 'lucide-react';
 import Avatar from './Avatar';
 
 interface PersonPanelProps {
@@ -16,14 +17,22 @@ interface PersonPanelProps {
   onDeleteRelationship: (id: string) => void;
   onSelectPerson: (id: string) => void;
   onClose: () => void;
+  myPersonId?: string | null;
 }
 
 export default function PersonPanel({
-  person, people, relationships, onEdit, onDelete, onAddRelationship, onQuickAdd, onDeleteRelationship, onSelectPerson, onClose,
+  person, people, relationships, onEdit, onDelete, onAddRelationship, onQuickAdd, onDeleteRelationship, onSelectPerson, onClose, myPersonId,
 }: PersonPanelProps) {
   const c = genderClasses(person.gender);
   const family = getImmediateFamily(person.id, relationships, people);
   const hasAnyFamily = family.parents.length || family.spouses.length || family.children.length || family.siblings.length || family.extended.length;
+
+  const relationToMe = myPersonId && myPersonId !== person.id
+    ? (() => {
+        const path = findRelationshipPath(myPersonId, person.id, people, relationships);
+        return path ? describeRelationshipPath(path) : null;
+      })()
+    : null;
 
   function formatDate(dateStr?: string) {
     if (!dateStr) return null;
@@ -55,6 +64,13 @@ export default function PersonPanel({
               {person.gender.charAt(0).toUpperCase() + person.gender.slice(1)}
               {person.dateOfBirth && ` · b. ${new Date(person.dateOfBirth).getFullYear()}`}
             </div>
+            {myPersonId === person.id ? (
+              <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold text-indigo-600">This is you</div>
+            ) : relationToMe && (
+              <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                <Users2 size={11} /> Your {relationToMe}
+              </div>
+            )}
           </div>
         </div>
       </div>
